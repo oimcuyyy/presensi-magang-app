@@ -170,24 +170,6 @@ const Dashboard = () => {
                   <p className="mt-1 text-sm text-gray-500">Atur titik geofencing untuk lokasi presensi sekolah.</p>
                 </div>
               </button>
-            </>
-          )}
-
-          {/* MENU GURU PEMBIMBING */}
-          {user.role === 'guru_pembimbing' && (
-            <>
-              <button 
-                onClick={() => navigate('/admin/attendance')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-indigo-50 rounded-md text-indigo-600">
-                  <FileText className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Laporan Absensi</h4>
-                  <p className="mt-1 text-sm text-gray-500">Pantau kehadiran siswa bimbingan Anda.</p>
-                </div>
-              </button>
 
               <button 
                 onClick={() => navigate('/live-tracking')} 
@@ -198,14 +180,14 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h4 className="text-base font-semibold text-gray-900">Peta Live Tracking</h4>
-                  <p className="mt-1 text-sm text-gray-500">Lihat pergerakan lokasi siswa secara real-time.</p>
+                  <p className="mt-1 text-sm text-gray-500">Lihat pergerakan lokasi guru dan siswa secara real-time.</p>
                 </div>
               </button>
             </>
           )}
 
-          {/* MENU SISWA */}
-          {user.role === 'siswa' && (
+          {/* MENU GURU PEMBIMBING DAN SISWA */}
+          {(user.role === 'guru_pembimbing' || user.role === 'siswa') && (
             <>
               <button 
                 onClick={() => navigate('/attendance')} 
@@ -220,18 +202,20 @@ const Dashboard = () => {
                 </div>
               </button>
               
-              <button 
-                onClick={() => navigate('/journal')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
-                  <FileText className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Jurnal Harian</h4>
-                  <p className="mt-1 text-sm text-gray-500">Isi laporan aktivitas magang Anda setiap hari.</p>
-                </div>
-              </button>
+              {user.role === 'siswa' && (
+                <button 
+                  onClick={() => navigate('/journal')} 
+                  className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 transition-all text-left flex items-start gap-4"
+                >
+                  <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
+                    <FileText className="w-6 h-6" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-semibold text-gray-900">Jurnal Harian</h4>
+                    <p className="mt-1 text-sm text-gray-500">Isi laporan aktivitas magang Anda setiap hari.</p>
+                  </div>
+                </button>
+              )}
             </>
           )}
 
