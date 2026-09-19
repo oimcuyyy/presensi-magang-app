@@ -44,6 +44,23 @@ const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 app.use('/api/auth', authRoutes);
+
+// Endpoint sementara untuk reset password massal
+app.get('/api/fix-password', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash('password123', salt);
+    
+    const pool = require('./config/db');
+    await pool.query('UPDATE users SET password = ?', [newHash]);
+    
+    res.send('<h1>Perbaikan Berhasil!</h1><p>Semua password telah direset menjadi: <b>password123</b>. Silakan kembali ke Vercel dan coba login.</p>');
+  } catch (error) {
+    res.status(500).send('Gagal mereset password: ' + error.message);
+  }
+});
+
 app.use('/api/locations', locationRoutes);
 app.use('/api/attendances', attendanceRoutes);
 app.use('/api/journals', journalRoutes);
