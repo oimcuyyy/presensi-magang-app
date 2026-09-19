@@ -45,19 +45,34 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 
 app.use('/api/auth', authRoutes);
 
-// Endpoint sementara untuk reset password massal
-app.get('/api/fix-password', async (req, res) => {
+// Endpoint sementara untuk setup admin
+app.get('/api/add-admin', async (req, res) => {
   try {
     const bcrypt = require('bcryptjs');
     const salt = await bcrypt.genSalt(10);
-    const newHash = await bcrypt.hash('password123', salt);
+    const adminHash = await bcrypt.hash('password123', salt);
     
     const pool = require('./config/db');
-    await pool.query('UPDATE users SET password = ?', [newHash]);
     
-    res.send('<h1>Perbaikan Berhasil!</h1><p>Semua password telah direset menjadi: <b>password123</b>. Silakan kembali ke Vercel dan coba login.</p>');
+    // 1. Update struktur tabel untuk mendukung role 'admin'
+    await pool.query("ALTER TABLE users MODIFY COLUMN role ENUM('siswa', 'guru_pembimbing', 'admin') NOT NULL");
+    
+    // 2. Cek apakah admin sudah ada
+    const [existing] = await pool.query("SELECT * FROM users WHERE email = 'admin@sekolah.com'");
+    
+    if (existing.length === 0) {
+      // 3. Masukkan data admin
+      await pool.query(
+        "INSERT INTO users (name, email, password, role) VALUES ('Admin Sekolah', 'admin@sekolah.com', ?, 'admin')",
+        [adminHash]
+      );
+      res.send('<h1>Akun Admin Berhasil Dibuat!</h1><p>Email: <b>admin@sekolah.com</b><br>Password: <b>password123</b></p><p>Silakan kembali ke Vercel dan login.</p>');
+    } else {
+      res.send('<h1>Akun Admin Sudah Ada!</h1><p>Gunakan email: <b>admin@sekolah.com</b> dan password: <b>password123</b></p>');
+    }
+    
   } catch (error) {
-    res.status(500).send('Gagal mereset password: ' + error.message);
+    res.status(500).send('Gagal membuat admin: ' + error.message);
   }
 });
 
