@@ -80,9 +80,9 @@ app.get('/api/fix-lokasi', async (req, res) => {
   try {
     const pool = require('./config/db');
     await pool.query(
-      "UPDATE locations SET name = 'SMKN 20 Jakarta', latitude = -6.284, longitude = 106.7938, address = 'Jl. Melati No. 24, Cilandak Barat, Jakarta Selatan' WHERE id = 1"
+      "UPDATE locations SET name = 'SMKN 20 Jakarta', latitude = -6.284, longitude = 106.7938, radius = 15, address = 'Jl. Melati No. 24, Cilandak Barat, Jakarta Selatan' WHERE id = 1"
     );
-    res.send('<h1>Lokasi GPS berhasil dikembalikan ke SMKN 20 Jakarta!</h1>');
+    res.send('<h1>Lokasi GPS dan Radius (15m) berhasil diperbarui ke SMKN 20 Jakarta!</h1>');
   } catch (error) {
     res.status(500).send('Error: ' + error.message);
   }
