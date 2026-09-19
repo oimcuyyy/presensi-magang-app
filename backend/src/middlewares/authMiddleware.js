@@ -6,7 +6,7 @@ const authenticateToken = (req, res, next) => {
 
   if (!token) return res.status(401).json({ message: 'Akses ditolak. Token tidak ditemukan.' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'rahasia_presensi_magang_123', (err, user) => {
     if (err) return res.status(403).json({ message: 'Token tidak valid atau sudah kadaluarsa.' });
     
     req.user = user;

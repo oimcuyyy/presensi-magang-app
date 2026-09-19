@@ -30,7 +30,7 @@ const login = async (req, res) => {
       name: user.name
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'rahasia_presensi_magang_123', { expiresIn: '1d' });
 
     res.json({
       message: 'Login berhasil',
