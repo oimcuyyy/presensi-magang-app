@@ -76,6 +76,18 @@ app.get('/api/add-admin', async (req, res) => {
   }
 });
 
+app.get('/api/fix-lokasi', async (req, res) => {
+  try {
+    const pool = require('./config/db');
+    await pool.query(
+      "UPDATE locations SET name = 'SMKN 20 Jakarta', latitude = -6.284, longitude = 106.7938, address = 'Jl. Melati No. 24, Cilandak Barat, Jakarta Selatan' WHERE id = 1"
+    );
+    res.send('<h1>Lokasi GPS berhasil dikembalikan ke SMKN 20 Jakarta!</h1>');
+  } catch (error) {
+    res.status(500).send('Error: ' + error.message);
+  }
+});
+
 app.use('/api/locations', locationRoutes);
 app.use('/api/attendances', attendanceRoutes);
 app.use('/api/journals', journalRoutes);
