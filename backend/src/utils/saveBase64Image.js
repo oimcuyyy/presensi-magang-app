@@ -33,6 +33,11 @@ const saveBase64Image = (base64String) => {
     // Tentukan path upload
     const uploadDir = path.join(__dirname, '../../public/uploads');
     
+    // Buat direktori jika belum ada
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
     // Simpan file
     fs.writeFileSync(path.join(uploadDir, filename), data);
 
