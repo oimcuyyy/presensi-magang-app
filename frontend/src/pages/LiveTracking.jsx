@@ -75,7 +75,7 @@ const LiveTracking = () => {
               // Custom Icon Logic
               let customIcon;
               if (user.photo) {
-                const photoUrl = user.photo.startsWith('http') ? user.photo : `http://localhost:5000${user.photo}`;
+                const photoUrl = import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}${user.photo}` : user.photo;
                 customIcon = L.divIcon({
                   className: 'custom-avatar-icon',
                   html: `<div style="width: 40px; height: 40px; border-radius: 50%; border: 3px solid ${user.role === 'siswa' ? '#3b82f6' : '#10b981'}; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); background-color: white;">
@@ -106,7 +106,7 @@ const LiveTracking = () => {
                     <div className="text-sm min-w-[200px]">
                       {user.photo && (
                         <div className="mb-3 flex justify-center">
-                          <img src={user.photo.startsWith('http') ? user.photo : `http://localhost:5000${user.photo}`} alt={user.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
+                          <img src={import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}${user.photo}` : user.photo} alt={user.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
                         </div>
                       )}
                       <p className="font-bold text-gray-900 text-center">{user.name}</p>

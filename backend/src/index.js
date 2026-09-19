@@ -56,8 +56,9 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Sistem Presensi & Jurnal Magang/PKL API' });
 });
 
-// In-memory storage untuk live tracking (socket.id -> user_data)
-const activeUsers = new Map();
+// In-memory storage untuk live tracking 
+const activeUsers = new Map(); // Maps userId -> user_data
+const socketToUser = new Map(); // Maps socket.id -> userId
 
 io.on('connection', (socket) => {
   console.log('User connected to socket:', socket.id);
@@ -67,20 +68,23 @@ io.on('connection', (socket) => {
 
   // Menerima update lokasi dari klien
   socket.on('update_location', async (data) => {
-    // console.log(`Location update dari: ${data.name} (${data.latitude}, ${data.longitude})`);
+    if (!data.userId) return;
+    
+    socketToUser.set(socket.id, data.userId);
     
     let extraInfo = {};
-    const existingUser = activeUsers.get(socket.id);
+    const existingUser = activeUsers.get(data.userId);
     
-    // Gunakan cache jika sudah pernah di-fetch untuk socket ini
+    // Gunakan cache jika sudah pernah di-fetch
     if (existingUser && existingUser.kelas !== undefined) {
       extraInfo = {
         kelas: existingUser.kelas,
         jurusan: existingUser.jurusan,
         nama_instansi: existingUser.nama_instansi,
-        pembimbing_instansi: existingUser.pembimbing_instansi
+        pembimbing_instansi: existingUser.pembimbing_instansi,
+        photo: existingUser.photo
       };
-    } else if (data.userId && data.role === 'siswa') {
+    } else if (data.role === 'siswa') {
       // Ambil dari database sekali saja
       try {
         const db = require('./config/db');
@@ -93,7 +97,7 @@ io.on('connection', (socket) => {
       }
     }
 
-    activeUsers.set(socket.id, { ...data, socketId: socket.id, ...extraInfo });
+    activeUsers.set(data.userId, { ...data, socketId: socket.id, ...extraInfo });
     
     // Kirim seluruh data user aktif ke admin/guru yang mendengarkan
     io.emit('live_locations', Array.from(activeUsers.values()));
@@ -101,14 +105,22 @@ io.on('connection', (socket) => {
 
   // Klien berhenti membagikan lokasi
   socket.on('stop_sharing', () => {
-    activeUsers.delete(socket.id);
-    io.emit('live_locations', Array.from(activeUsers.values()));
+    const userId = socketToUser.get(socket.id);
+    if (userId) {
+      activeUsers.delete(userId);
+      socketToUser.delete(socket.id);
+      io.emit('live_locations', Array.from(activeUsers.values()));
+    }
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-    activeUsers.delete(socket.id);
-    io.emit('live_locations', Array.from(activeUsers.values()));
+    // console.log('User disconnected:', socket.id);
+    const userId = socketToUser.get(socket.id);
+    if (userId) {
+      activeUsers.delete(userId);
+      socketToUser.delete(socket.id);
+      io.emit('live_locations', Array.from(activeUsers.values()));
+    }
   });
 });
 
@@ -117,3 +129,4 @@ server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 // trigger nodemon restart
+// trigger db reconnect

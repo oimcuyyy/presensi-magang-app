@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+
 const api = axios.create({
-  baseURL: '/api', // Menggunakan path relatif agar Vite Proxy meneruskannya ke backend
+  baseURL: `${backendUrl}/api`, // Gunakan URL dari .env jika ada (untuk produksi), atau gunakan relative (untuk local proxy)
 });
 
 api.interceptors.request.use((config) => {

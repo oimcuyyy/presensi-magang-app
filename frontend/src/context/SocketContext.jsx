@@ -13,7 +13,8 @@ export const SocketProvider = ({ children }) => {
   const [trackingError, setTrackingError] = useState(null);
 
   useEffect(() => {
-    const newSocket = io('/', {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '/';
+    const newSocket = io(backendUrl, {
       path: '/socket.io',
       transports: ['websocket', 'polling']
     });

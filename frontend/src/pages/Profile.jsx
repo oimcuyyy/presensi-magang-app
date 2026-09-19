@@ -45,7 +45,7 @@ const Profile = () => {
         photo_url: ''
       });
       if (data.photo) {
-        setPreviewPhoto(`http://localhost:5000${data.photo}`);
+        setPreviewPhoto(import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}${data.photo}` : data.photo);
       }
     } catch (err) {
       setError('Gagal memuat profil. Silakan coba lagi nanti.');
@@ -56,7 +56,19 @@ const Profile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfile(prev => ({ ...prev, [name]: value }));
+    let sanitizedValue = value;
+
+    // Validasi: Angka hanya untuk angka, huruf hanya untuk huruf
+    if (name === 'no_hp') {
+      // Hanya izinkan angka 0-9
+      sanitizedValue = value.replace(/[^0-9]/g, '');
+    } else if (name === 'jurusan' || name === 'pembimbing_instansi') {
+      // Hanya izinkan huruf, spasi, dan tanda baca gelar (titik, koma, tanda petik)
+      sanitizedValue = value.replace(/[^a-zA-Z\s.,'"]/g, '');
+    }
+    // Untuk nama_instansi, kelas, dan alamat kita biarkan bebas karena bisa mengandung kombinasi angka & huruf (misal: "PT. Telkom 2", "XII TKJ 1", "Jl. Mawar No 10")
+
+    setProfile(prev => ({ ...prev, [name]: sanitizedValue }));
   };
 
   const handlePhotoChange = (e) => {
