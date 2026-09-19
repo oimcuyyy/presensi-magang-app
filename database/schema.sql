@@ -15,6 +15,13 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     role ENUM('siswa', 'guru_pembimbing') NOT NULL,
     nisn VARCHAR(50) NULL COMMENT 'Only for siswa',
+    kelas VARCHAR(100) NULL,
+    jurusan VARCHAR(100) NULL,
+    no_hp VARCHAR(20) NULL,
+    alamat TEXT NULL,
+    nama_instansi VARCHAR(255) NULL,
+    pembimbing_instansi VARCHAR(255) NULL,
+    photo VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
