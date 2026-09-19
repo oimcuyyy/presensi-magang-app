@@ -77,7 +77,7 @@ const Dashboard = () => {
           <LiveTrackerToggle user={user} />
         )}
         
-        {user.role === 'admin' && (
+        {(user.role === 'admin' || user.role === 'guru_pembimbing') && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white px-4 py-5 border border-gray-200 rounded-lg shadow-sm sm:p-6 flex items-center">
               <div className="flex-shrink-0 bg-blue-50 rounded-md p-3">
@@ -129,24 +129,25 @@ const Dashboard = () => {
         <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">Menu Utama</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           
-          {user.role === 'admin' ? (
+          {/* MENU ADMIN */}
+          {user.role === 'admin' && (
             <>
               <button 
                 onClick={() => navigate('/admin/users')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-left flex items-start gap-4"
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
               >
                 <div className="p-2 bg-blue-50 rounded-md text-blue-600">
                   <Users className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <div>
-                  <h4 className="text-base font-semibold text-gray-900">Kelola Data Siswa</h4>
-                  <p className="mt-1 text-sm text-gray-500">Pendaftaran akun siswa dan pembimbing magang.</p>
+                  <h4 className="text-base font-semibold text-gray-900">Kelola Data Pengguna</h4>
+                  <p className="mt-1 text-sm text-gray-500">Pendaftaran akun siswa dan guru pembimbing.</p>
                 </div>
               </button>
 
               <button 
                 onClick={() => navigate('/admin/attendance')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-left flex items-start gap-4"
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
               >
                 <div className="p-2 bg-indigo-50 rounded-md text-indigo-600">
                   <FileText className="w-6 h-6" aria-hidden="true" />
@@ -159,7 +160,7 @@ const Dashboard = () => {
 
               <button 
                 onClick={() => navigate('/admin/locations')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-left flex items-start gap-4"
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
               >
                 <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
                   <MapPin className="w-6 h-6" aria-hidden="true" />
@@ -170,11 +171,45 @@ const Dashboard = () => {
                 </div>
               </button>
             </>
-          ) : (
+          )}
+
+          {/* MENU GURU PEMBIMBING */}
+          {user.role === 'guru_pembimbing' && (
+            <>
+              <button 
+                onClick={() => navigate('/admin/attendance')} 
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 transition-all text-left flex items-start gap-4"
+              >
+                <div className="p-2 bg-indigo-50 rounded-md text-indigo-600">
+                  <FileText className="w-6 h-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-gray-900">Laporan Absensi</h4>
+                  <p className="mt-1 text-sm text-gray-500">Pantau kehadiran siswa bimbingan Anda.</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={() => navigate('/live-tracking')} 
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-purple-500 hover:ring-1 hover:ring-purple-500 transition-all text-left flex items-start gap-4"
+              >
+                <div className="p-2 bg-purple-50 rounded-md text-purple-600">
+                  <MapPin className="w-6 h-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-gray-900">Peta Live Tracking</h4>
+                  <p className="mt-1 text-sm text-gray-500">Lihat pergerakan lokasi siswa secara real-time.</p>
+                </div>
+              </button>
+            </>
+          )}
+
+          {/* MENU SISWA */}
+          {user.role === 'siswa' && (
             <>
               <button 
                 onClick={() => navigate('/attendance')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-left flex items-start gap-4"
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
               >
                 <div className="p-2 bg-blue-50 rounded-md text-blue-600">
                   <MapPin className="w-6 h-6" aria-hidden="true" />
@@ -185,20 +220,18 @@ const Dashboard = () => {
                 </div>
               </button>
               
-              {user.role === 'siswa' && (
-                <button 
-                  onClick={() => navigate('/journal')} 
-                  className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-left flex items-start gap-4"
-                >
-                  <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
-                    <FileText className="w-6 h-6" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900">Jurnal Harian</h4>
-                    <p className="mt-1 text-sm text-gray-500">Isi laporan aktivitas magang Anda setiap hari.</p>
-                  </div>
-                </button>
-              )}
+              <button 
+                onClick={() => navigate('/journal')} 
+                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 transition-all text-left flex items-start gap-4"
+              >
+                <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
+                  <FileText className="w-6 h-6" aria-hidden="true" />
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-gray-900">Jurnal Harian</h4>
+                  <p className="mt-1 text-sm text-gray-500">Isi laporan aktivitas magang Anda setiap hari.</p>
+                </div>
+              </button>
             </>
           )}
 
