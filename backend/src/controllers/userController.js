@@ -121,6 +121,23 @@ const updateProfile = async (req, res) => {
       );
     }
     
+    // Update active socket cache jika user sedang aktif di Live Tracking
+    const activeUsers = req.app.locals.activeUsers;
+    if (activeUsers && activeUsers.has(userId)) {
+      const userCache = activeUsers.get(userId);
+      userCache.kelas = kelas || null;
+      userCache.jurusan = jurusan || null;
+      userCache.nama_instansi = nama_instansi || null;
+      userCache.pembimbing_instansi = pembimbing_instansi || null;
+      if (savedPhotoUrl) userCache.photo = savedPhotoUrl;
+      activeUsers.set(userId, userCache);
+      
+      // Beritahu klien live tracking tentang perubahan data profil
+      if (req.io) {
+        req.io.emit('live_locations', Array.from(activeUsers.values()));
+      }
+    }
+    
     res.json({ message: 'Profil berhasil diperbarui.', photo: savedPhotoUrl });
   } catch (error) {
     console.error('Update profile error:', error);

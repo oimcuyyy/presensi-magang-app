@@ -90,6 +90,7 @@ app.get('/', (req, res) => {
 
 // In-memory storage untuk live tracking 
 const activeUsers = new Map(); // Maps userId -> user_data
+app.locals.activeUsers = activeUsers; // Export for controllers
 const socketToUser = new Map(); // Maps socket.id -> userId
 
 io.on('connection', (socket) => {
@@ -116,13 +117,15 @@ io.on('connection', (socket) => {
         pembimbing_instansi: existingUser.pembimbing_instansi,
         photo: existingUser.photo
       };
-    } else if (data.role === 'siswa') {
-      // Ambil dari database sekali saja
+    } else {
+      // Ambil dari database sekali saja (berlaku untuk guru dan siswa)
       try {
         const db = require('./config/db');
         const [rows] = await db.execute('SELECT kelas, jurusan, nama_instansi, pembimbing_instansi, photo FROM users WHERE id = ?', [data.userId]);
         if (rows.length > 0) {
           extraInfo = rows[0];
+        } else {
+          extraInfo = { kelas: null, jurusan: null, nama_instansi: null, pembimbing_instansi: null, photo: null };
         }
       } catch (err) {
         console.error('Socket DB Error:', err);
