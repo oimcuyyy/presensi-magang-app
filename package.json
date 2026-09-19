@@ -1,0 +1,12 @@
+{
+  "name": "presensi-magang-app-root",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "cd backend && npm install",
+    "start": "cd backend && npm start"
+  }
+}
