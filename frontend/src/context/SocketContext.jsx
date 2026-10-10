@@ -7,14 +7,15 @@ export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
-
   const [isTracking, setIsTracking] = useState(false);
   const [watchId, setWatchId] = useState(null);
   const [trackingError, setTrackingError] = useState(null);
+  const [currentAccuracy, setCurrentAccuracy] = useState(null);
+  const [lastCoords, setLastCoords] = useState(null);
 
   useEffect(() => {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || '/';
-    const newSocket = io(backendUrl, {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    const newSocket = io(backendUrl || undefined, {
       path: '/socket.io',
       transports: ['websocket', 'polling']
     });
@@ -46,50 +47,86 @@ export const SocketProvider = ({ children }) => {
       }
       setIsTracking(false);
       setTrackingError(null);
+      setCurrentAccuracy(null);
     } else {
       // Start tracking
       if (!navigator.geolocation) {
-        setTrackingError('Geolocation tidak didukung browser ini.');
+        setTrackingError('Geolocation tidak didukung pada perangkat ini.');
         return;
       }
       setTrackingError(null);
-      
-      // Helper function untuk emit
+
+      // Helper function untuk emit lokasi berakurasi tinggi
       const sendLocation = (position) => {
-        socket.emit('update_location', {
-          userId: user.id,
-          name: user.name,
-          role: user.role,
+        const accuracy = Math.round(position.coords.accuracy || 0);
+        setCurrentAccuracy(accuracy);
+        setLastCoords({
           latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          timestamp: new Date().toISOString()
+          longitude: position.coords.longitude
         });
+
+        if (socket) {
+          socket.emit('update_location', {
+            userId: user.id,
+            name: user.name,
+            role: user.role,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: accuracy,
+            speed: position.coords.speed ? Math.round(position.coords.speed * 3.6) : null, // km/h
+            heading: position.coords.heading || null,
+            timestamp: new Date().toISOString()
+          });
+        }
       };
 
-      // Tembak lokasi sekarang juga (sekali)
+      const handleGpsError = (err) => {
+        let msg = 'Gagal mengakses GPS.';
+        if (err.code === 1) msg = 'Izin akses lokasi ditolak oleh browser/pengguna.';
+        else if (err.code === 2) msg = 'Sinyal lokasi/GPS tidak terdeteksi. Aktifkan GPS HP.';
+        else if (err.code === 3) msg = 'Waktu pencarian GPS habis (Timeout).';
+        setTrackingError(msg);
+      };
+
+      // 1. Ambil posisi awal dengan akurasi tinggi
       navigator.geolocation.getCurrentPosition(
         sendLocation,
-        (err) => console.log('getCurrentPosition err:', err),
-        { enableHighAccuracy: false, timeout: 5000 }
+        handleGpsError,
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
       );
-      
-      // Pantau pergerakan selanjutnya
+
+      // 2. Pantau perpindahan real-time dengan akurasi tinggi dan interval rendah
       const id = navigator.geolocation.watchPosition(
         sendLocation,
         (err) => {
-          setTrackingError(`Gagal melacak: ${err.message}`);
+          handleGpsError(err);
           setIsTracking(false);
         },
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+        {
+          enableHighAccuracy: true,
+          maximumAge: 2000,
+          timeout: 15000
+        }
       );
-      
+
       setWatchId(id);
       setIsTracking(true);
     }
   };
 
   return (
-    <SocketContext.Provider value={{ socket, isTracking, trackingError, toggleTracking }}>
+    <SocketContext.Provider value={{
+      socket,
+      isTracking,
+      trackingError,
+      toggleTracking,
+      currentAccuracy,
+      lastCoords
+    }}>
       {children}
     </SocketContext.Provider>
   );

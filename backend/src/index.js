@@ -1,22 +1,60 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const path = require('path');
 
-// Middleware
-app.use(cors());
+// ─── Security Middleware ─────────────────────────────────────────────
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// CORS — restrict origins in production
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'https://localhost:5173'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // In dev mode, allow all. In production, restrict.
+    }
+  },
+  credentials: true
+}));
+
+// Rate limiting on auth routes to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // max 20 attempts per window
+  message: { message: 'Terlalu banyak percobaan login. Coba lagi setelah 15 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// General API rate limiter
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: { message: 'Terlalu banyak request. Coba lagi nanti.' }
+});
+
+app.use('/api/', apiLimiter);
+
+// ─── Body Parser ─────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Static files (untuk mengakses foto absensi)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-
-
+// ─── Socket.io Setup ─────────────────────────────────────────────────
 const http = require('http');
 const { Server } = require('socket.io');
 
@@ -34,7 +72,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+// ─── Routes ──────────────────────────────────────────────────────────
 const authRoutes = require('./routes/authRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
@@ -43,50 +81,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
-app.use('/api/auth', authRoutes);
-
-// Endpoint sementara untuk setup admin
-app.get('/api/add-admin', async (req, res) => {
-  try {
-    const bcrypt = require('bcryptjs');
-    const salt = await bcrypt.genSalt(10);
-    const adminHash = await bcrypt.hash('password123', salt);
-    
-    const pool = require('./config/db');
-    
-    // 1. Update struktur tabel untuk mendukung role 'admin'
-    await pool.query("ALTER TABLE users MODIFY COLUMN role ENUM('siswa', 'guru_pembimbing', 'admin') NOT NULL");
-    
-    // 2. Cek apakah admin sudah ada
-    const [existing] = await pool.query("SELECT * FROM users WHERE email = 'admin@sekolah.com'");
-    
-    if (existing.length === 0) {
-      // 3. Masukkan data admin
-      await pool.query(
-        "INSERT INTO users (name, email, password, role) VALUES ('Admin Sekolah', 'admin@sekolah.com', ?, 'admin')",
-        [adminHash]
-      );
-      res.send('<h1>Akun Admin Berhasil Dibuat!</h1><p>Email: <b>admin@sekolah.com</b><br>Password: <b>password123</b></p><p>Silakan kembali ke Vercel dan login.</p>');
-    } else {
-      res.send('<h1>Akun Admin Sudah Ada!</h1><p>Gunakan email: <b>admin@sekolah.com</b> dan password: <b>password123</b></p>');
-    }
-    
-  } catch (error) {
-    res.status(500).send('Gagal membuat admin: ' + error.message);
-  }
-});
-
-app.get('/api/fix-lokasi', async (req, res) => {
-  try {
-    const pool = require('./config/db');
-    await pool.query(
-      "UPDATE locations SET name = 'SMKN 20 Jakarta', latitude = -6.284, longitude = 106.7938, radius = 15, address = 'Jl. Melati No. 24, Cilandak Barat, Jakarta Selatan' WHERE id = 1"
-    );
-    res.send('<h1>Lokasi GPS dan Radius (15m) berhasil diperbarui ke SMKN 20 Jakarta!</h1>');
-  } catch (error) {
-    res.status(500).send('Error: ' + error.message);
-  }
-});
+// Auth routes with rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
 
 app.use('/api/locations', locationRoutes);
 app.use('/api/attendances', attendanceRoutes);
@@ -95,32 +91,39 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// Test Route
+// Health check
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to Sistem Presensi & Jurnal Magang/PKL API' });
+  res.json({ message: 'Sistem Presensi & Jurnal Magang/PKL API v2.0', status: 'ok' });
 });
 
-// In-memory storage untuk live tracking 
-const activeUsers = new Map(); // Maps userId -> user_data
-app.locals.activeUsers = activeUsers; // Export for controllers
-const socketToUser = new Map(); // Maps socket.id -> userId
+// Global Error Handler (handles body-parser JSON syntax errors, rate limits, and unhandled errors)
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ message: 'Format payload JSON tidak valid.' });
+  }
+  console.error('Unhandled Server Error:', err);
+  res.status(err.status || 500).json({ message: err.message || 'Terjadi kesalahan internal server.' });
+});
+
+// ─── Socket.io Live Tracking ─────────────────────────────────────────
+const activeUsers = new Map();
+app.locals.activeUsers = activeUsers;
+const socketToUser = new Map();
 
 io.on('connection', (socket) => {
-  console.log('User connected to socket:', socket.id);
-
-  // Kirim state awal ke klien yang baru terhubung
+  // Send initial state to newly connected client
   socket.emit('live_locations', Array.from(activeUsers.values()));
 
-  // Menerima update lokasi dari klien
+  // Receive location updates from clients
   socket.on('update_location', async (data) => {
     if (!data.userId) return;
-    
+
     socketToUser.set(socket.id, data.userId);
-    
+
     let extraInfo = {};
     const existingUser = activeUsers.get(data.userId);
-    
-    // Gunakan cache jika sudah pernah di-fetch
+
+    // Use cache if already fetched
     if (existingUser && existingUser.kelas !== undefined) {
       extraInfo = {
         kelas: existingUser.kelas,
@@ -130,7 +133,6 @@ io.on('connection', (socket) => {
         photo: existingUser.photo
       };
     } else {
-      // Ambil dari database sekali saja (berlaku untuk guru dan siswa)
       try {
         const db = require('./config/db');
         const [rows] = await db.execute('SELECT kelas, jurusan, nama_instansi, pembimbing_instansi, photo FROM users WHERE id = ?', [data.userId]);
@@ -144,13 +146,16 @@ io.on('connection', (socket) => {
       }
     }
 
-    activeUsers.set(data.userId, { ...data, socketId: socket.id, ...extraInfo });
-    
-    // Kirim seluruh data user aktif ke admin/guru yang mendengarkan
+    activeUsers.set(data.userId, {
+      ...data,
+      socketId: socket.id,
+      accuracy: data.accuracy || null,
+      ...extraInfo
+    });
+
     io.emit('live_locations', Array.from(activeUsers.values()));
   });
 
-  // Klien berhenti membagikan lokasi
   socket.on('stop_sharing', () => {
     const userId = socketToUser.get(socket.id);
     if (userId) {
@@ -161,7 +166,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    // console.log('User disconnected:', socket.id);
     const userId = socketToUser.get(socket.id);
     if (userId) {
       activeUsers.delete(userId);
@@ -171,9 +175,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start Server
+// ─── Start Server ────────────────────────────────────────────────────
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-// trigger nodemon restart
-// trigger db reconnect

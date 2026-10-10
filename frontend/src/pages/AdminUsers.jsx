@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, UserPlus, Trash2, ShieldCheck, X } from 'lucide-react';
+import { Users, UserPlus, Trash2, ShieldCheck, X, CreditCard } from 'lucide-react';
 import api from '../services/api';
 
 const AdminUsers = () => {
@@ -117,7 +117,17 @@ const AdminUsers = () => {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{user.nisn || '-'}</td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 flex items-center justify-end gap-1">
+                      {user.role === 'siswa' && (
+                        <button
+                          onClick={() => navigate(`/card?user_id=${user.id}`)}
+                          className="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-50 transition-colors"
+                          title="Lihat / Cetak Kartu Siswa"
+                          aria-label={`Kartu siswa ${user.name}`}
+                        >
+                          <CreditCard className="w-4 h-4" />
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleDelete(user.id)}
                         className="text-red-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"

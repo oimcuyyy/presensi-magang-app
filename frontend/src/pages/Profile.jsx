@@ -121,13 +121,22 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-            Profil Saya
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Lengkapi data diri dan informasi tempat magang Anda.
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+              Profil Saya
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Lengkapi data diri, NISN, foto, dan informasi tempat magang Anda.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.href = '/card'}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 transition-all self-start sm:self-auto"
+          >
+            Lihat Kartu Siswa & Barcode
+          </button>
         </div>
 
         {error && (

@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Users, CheckCircle, MapPin, BookOpen, Settings, FileText } from 'lucide-react';
+import {
+  Users,
+  CheckCircle2,
+  MapPin,
+  BookOpen,
+  FileSpreadsheet,
+  CreditCard,
+  ScanLine,
+  Radio,
+  ArrowUpRight,
+  ShieldCheck,
+  Building,
+  School,
+  Calendar,
+  Clock,
+  ArrowRight
+} from 'lucide-react';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import LiveTrackerToggle from '../components/LiveTrackerToggle';
@@ -34,7 +50,7 @@ const Dashboard = () => {
   const fetchStats = async () => {
     try {
       const response = await api.get('/dashboard/stats');
-      setStats(response.data.data);
+      setStats(response.data.data || { totalSiswa: 0, hadirHariIni: 0, totalLokasi: 0, jurnalMenunggu: 0 });
     } catch (error) {
       console.error('Failed to fetch dashboard stats');
     }
@@ -51,174 +67,318 @@ const Dashboard = () => {
     }
   }, [socket, user]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      
+    <div className="min-h-screen bg-slate-50 pb-12 font-sans text-slate-800">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Institutional Header Banner */}
+        <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-900 border border-blue-200">
+                SMK Negeri 20 Jakarta
+              </span>
+              <span className="text-xs text-slate-400">&bull;</span>
+              <span className="text-xs text-slate-600 font-semibold">Tahun Ajaran 2026/2027</span>
+            </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-            Halo, {user.name}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Selamat datang di dashboard {user.role.replace('_', ' ')}. Pilih menu navigasi untuk memulai aktivitas Anda hari ini.
-          </p>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Selamat datang, {user.name}
+            </h1>
+
+            <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
+              {user.role === 'siswa' ? (
+                <>
+                  Siswa Praktik Kerja Lapangan (PKL) terdaftar di{' '}
+                  <strong className="text-slate-900">{user.nama_instansi || 'Unit Industri Mitra'}</strong>.
+                  Pastikan melakukan presensi harian tepat waktu.
+                </>
+              ) : (
+                'Panel pemantauan presensi, live telemetri geolokasi, dan validasi jurnal harian siswa magang.'
+              )}
+            </p>
+          </div>
+
+          {/* Quick Action Trigger */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {user.role === 'siswa' && (
+              <button
+                onClick={() => navigate('/card')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white text-xs font-semibold rounded-xl shadow-sm transition-all flex items-center gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                Kartu Barcode Siswa
+              </button>
+            )}
+            {(user.role === 'admin' || user.role === 'guru_pembimbing') && (
+              <button
+                onClick={() => navigate('/scan')}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-semibold rounded-xl shadow-sm transition-all flex items-center gap-2"
+              >
+                <ScanLine className="w-4 h-4 text-emerald-400" />
+                Buka Pemindai Barcode
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* Live Location Telemetry Widget for Student & Teacher */}
         {(user.role === 'siswa' || user.role === 'guru_pembimbing') && (
           <LiveTrackerToggle user={user} />
         )}
-        
+
+        {/* High-Density Admin/Teacher Metrics Row */}
         {(user.role === 'admin' || user.role === 'guru_pembimbing') && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white px-4 py-5 border border-gray-200 rounded-lg shadow-sm sm:p-6 flex items-center">
-              <div className="flex-shrink-0 bg-blue-50 rounded-md p-3">
-                <Users className="h-6 w-6 text-blue-600" aria-hidden="true" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Total Siswa PKL</span>
+                <Users className="w-4 h-4 text-blue-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
-                <dt className="text-sm font-medium text-gray-500 truncate">Total Siswa</dt>
-                <dd className="flex items-baseline">
-                  <div className="text-2xl font-semibold text-gray-900">{stats.totalSiswa}</div>
-                </dd>
-              </div>
+              <p className="text-2xl font-extrabold text-slate-900 font-mono tracking-tight">
+                {stats.totalSiswa}
+              </p>
+              <p className="text-[11px] text-slate-500">Terdaftar aktif</p>
             </div>
-            <div className="bg-white px-4 py-5 border border-gray-200 rounded-lg shadow-sm sm:p-6 flex items-center">
-              <div className="flex-shrink-0 bg-green-50 rounded-md p-3">
-                <CheckCircle className="h-6 w-6 text-green-600" aria-hidden="true" />
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Hadir Hari Ini</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
-                <dt className="text-sm font-medium text-gray-500 truncate">Hadir Hari Ini</dt>
-                <dd className="flex items-baseline">
-                  <div className="text-2xl font-semibold text-gray-900">{stats.hadirHariIni}</div>
-                </dd>
-              </div>
+              <p className="text-2xl font-extrabold text-emerald-600 font-mono tracking-tight">
+                {stats.hadirHariIni}
+              </p>
+              <p className="text-[11px] text-slate-500">Presensi masuk terverifikasi</p>
             </div>
-            <div className="bg-white px-4 py-5 border border-gray-200 rounded-lg shadow-sm sm:p-6 flex items-center">
-              <div className="flex-shrink-0 bg-purple-50 rounded-md p-3">
-                <MapPin className="h-6 w-6 text-purple-600" aria-hidden="true" />
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Titik Geofence</span>
+                <MapPin className="w-4 h-4 text-indigo-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
-                <dt className="text-sm font-medium text-gray-500 truncate">Titik Lokasi</dt>
-                <dd className="flex items-baseline">
-                  <div className="text-2xl font-semibold text-gray-900">{stats.totalLokasi}</div>
-                </dd>
-              </div>
+              <p className="text-2xl font-extrabold text-slate-900 font-mono tracking-tight">
+                {stats.totalLokasi}
+              </p>
+              <p className="text-[11px] text-slate-500">Sekolah & industri mitra</p>
             </div>
-            <div className="bg-white px-4 py-5 border border-gray-200 rounded-lg shadow-sm sm:p-6 flex items-center">
-              <div className="flex-shrink-0 bg-yellow-50 rounded-md p-3">
-                <BookOpen className="h-6 w-6 text-yellow-600" aria-hidden="true" />
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-sm space-y-1">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Jurnal Menunggu</span>
+                <BookOpen className="w-4 h-4 text-amber-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
-                <dt className="text-sm font-medium text-gray-500 truncate">Jurnal Menunggu</dt>
-                <dd className="flex items-baseline">
-                  <div className="text-2xl font-semibold text-gray-900">{stats.jurnalMenunggu}</div>
-                </dd>
-              </div>
+              <p className="text-2xl font-extrabold text-amber-600 font-mono tracking-tight">
+                {stats.jurnalMenunggu}
+              </p>
+              <p className="text-[11px] text-slate-500">Perlu review guru</p>
             </div>
           </div>
         )}
 
-        <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">Menu Utama</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          
-          {/* MENU ADMIN */}
-          {user.role === 'admin' && (
-            <>
-              <button 
-                onClick={() => navigate('/admin/users')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-blue-50 rounded-md text-blue-600">
-                  <Users className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Kelola Data Pengguna</h4>
-                  <p className="mt-1 text-sm text-gray-500">Pendaftaran akun siswa dan guru pembimbing.</p>
-                </div>
-              </button>
+        {/* Operational Modules Grid */}
+        <div className="space-y-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Modul Operasional
+          </h2>
 
-              <button 
-                onClick={() => navigate('/admin/attendance')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-indigo-50 rounded-md text-indigo-600">
-                  <FileText className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Laporan Absensi</h4>
-                  <p className="mt-1 text-sm text-gray-500">Pantau kehadiran seluruh siswa yang sedang magang.</p>
-                </div>
-              </button>
-
-              <button 
-                onClick={() => navigate('/admin/locations')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
-                  <MapPin className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Master Lokasi</h4>
-                  <p className="mt-1 text-sm text-gray-500">Atur titik geofencing untuk lokasi presensi sekolah.</p>
-                </div>
-              </button>
-
-              <button 
-                onClick={() => navigate('/live-tracking')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-purple-500 hover:ring-1 hover:ring-purple-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-purple-50 rounded-md text-purple-600">
-                  <MapPin className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Peta Live Tracking</h4>
-                  <p className="mt-1 text-sm text-gray-500">Lihat pergerakan lokasi guru dan siswa secara real-time.</p>
-                </div>
-              </button>
-            </>
-          )}
-
-          {/* MENU GURU PEMBIMBING DAN SISWA */}
-          {(user.role === 'guru_pembimbing' || user.role === 'siswa') && (
-            <>
-              <button 
-                onClick={() => navigate('/attendance')} 
-                className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all text-left flex items-start gap-4"
-              >
-                <div className="p-2 bg-blue-50 rounded-md text-blue-600">
-                  <MapPin className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">Presensi</h4>
-                  <p className="mt-1 text-sm text-gray-500">Catat kehadiran harian Anda menggunakan lokasi GPS.</p>
-                </div>
-              </button>
-              
-              {user.role === 'siswa' && (
-                <button 
-                  onClick={() => navigate('/journal')} 
-                  className="relative group bg-white p-6 border border-gray-200 rounded-lg shadow-sm hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 transition-all text-left flex items-start gap-4"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Siswa Features */}
+            {user.role === 'siswa' && (
+              <>
+                <button
+                  onClick={() => navigate('/attendance')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
                 >
-                  <div className="p-2 bg-emerald-50 rounded-md text-emerald-600">
-                    <FileText className="w-6 h-6" aria-hidden="true" />
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
                   </div>
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900">Jurnal Harian</h4>
-                    <p className="mt-1 text-sm text-gray-500">Isi laporan aktivitas magang Anda setiap hari.</p>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      Presensi Mandiri GPS
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Lakukan check-in dan check-out dengan validasi jarak geofence dan bukti foto selfie.
+                    </p>
                   </div>
                 </button>
-              )}
-            </>
-          )}
 
+                <button
+                  onClick={() => navigate('/card')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-100">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
+                      Kartu Pelajar & Barcode
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Tunjukkan kartu digital bertanda tangan kriptografi untuk dipindai oleh petugas pos sekolah.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/journal')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                      Jurnal Kegiatan PKL
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Laporkan aktivitas kerja harian dan baca umpan balik tertulis dari guru pembimbing.
+                    </p>
+                  </div>
+                </button>
+              </>
+            )}
+
+            {/* Admin & Guru Features */}
+            {(user.role === 'admin' || user.role === 'guru_pembimbing') && (
+              <>
+                <button
+                  onClick={() => navigate('/scan')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <ScanLine className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                      Pemindai Absensi Siswa
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Pindai QR code kartu siswa dengan kamera atau input barcode gun USB pada gerbang sekolah.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/live-tracking')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+                      <Radio className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      Peta Telemetri GPS Siswa
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Pantau posisi dan radius toleransi akurasi GPS siswa yang sedang berada di lokasi magang.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/admin/attendance')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+                      <FileSpreadsheet className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      Rekap & Validasi Presensi
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Audit bukti foto selfie di lokasi, cek koordinat satelit, dan ekspor data ke format CSV.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/journal')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-blue-500 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-100">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-purple-600 transition-colors">
+                      Review & Umpan Balik Jurnal
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Evaluasi laporan teknis harian siswa dan kirimkan bimbingan evaluasi tertulis.
+                    </p>
+                  </div>
+                </button>
+              </>
+            )}
+
+            {/* Admin Master Data Modules */}
+            {user.role === 'admin' && (
+              <>
+                <button
+                  onClick={() => navigate('/admin/users')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-slate-800 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 transition-colors">
+                      Manajemen Pengguna
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Pendaftaran akun siswa PKL, guru pembimbing, dan penetapan hak otorisasi role.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/admin/locations')}
+                  className="p-5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:border-slate-800 hover:shadow-md transition-all text-left flex flex-col justify-between group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="p-2.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-sm font-bold text-slate-900 transition-colors">
+                      Master Lokasi Geofence
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Konfigurasi titik lintang/bujur dan batas radius presensi sekolah serta instansi mitra.
+                    </p>
+                  </div>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </main>
     </div>
