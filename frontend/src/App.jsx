@@ -36,6 +36,7 @@ function App() {
 
         {/* Digital Student Card / Barcode */}
         <Route path="/card" element={<StudentCard />} />
+        <Route path="/id-card" element={<StudentCard />} />
 
         {/* QR & Barcode Attendance Scanner for Petugas / Guru / Admin */}
         <Route

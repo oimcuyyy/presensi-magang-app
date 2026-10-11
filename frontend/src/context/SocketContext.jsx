@@ -13,11 +13,34 @@ export const SocketProvider = ({ children }) => {
   const [currentAccuracy, setCurrentAccuracy] = useState(null);
   const [lastCoords, setLastCoords] = useState(null);
 
+  const [connectionStatus, setConnectionStatus] = useState('connecting'); // 'connected' | 'reconnecting' | 'disconnected'
+
   useEffect(() => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
     const newSocket = io(backendUrl || undefined, {
       path: '/socket.io',
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      timeout: 8000
+    });
+
+    newSocket.on('connect', () => {
+      setConnectionStatus('connected');
+    });
+
+    newSocket.on('reconnect_attempt', () => {
+      setConnectionStatus('reconnecting');
+    });
+
+    newSocket.on('reconnect_failed', () => {
+      setConnectionStatus('disconnected');
+    });
+
+    newSocket.on('disconnect', () => {
+      setConnectionStatus('disconnected');
     });
 
     setSocket(newSocket);
@@ -121,6 +144,7 @@ export const SocketProvider = ({ children }) => {
   return (
     <SocketContext.Provider value={{
       socket,
+      connectionStatus,
       isTracking,
       trackingError,
       toggleTracking,

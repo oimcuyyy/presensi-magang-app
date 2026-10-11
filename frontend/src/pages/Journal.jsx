@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   Send,
   CheckCircle2,
-  MessageSquare,
   AlertCircle,
   Clock,
   Check,
   X,
   User,
   Calendar,
-  Sparkles,
-  ChevronDown
+  MessageSquare,
+  Edit3
 } from 'lucide-react';
 import api from '../services/api';
+import PageHeader from '../components/common/PageHeader';
+import Button from '../components/common/Button';
+import Badge from '../components/common/Badge';
+import Modal from '../components/common/Modal';
 
 const Journal = () => {
-  const navigate = useNavigate();
   const [journals, setJournals] = useState([]);
   const [activity, setActivity] = useState('');
   const [reflection, setReflection] = useState('');
@@ -25,50 +26,72 @@ const Journal = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
 
   // Teacher Review Feedback Modal
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedJournal, setSelectedJournal] = useState(null);
   const [reviewStatus, setReviewStatus] = useState('approved');
   const [teacherFeedback, setTeacherFeedback] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user'));
     if (userData) {
       setUserRole(userData.role);
-      setCurrentUser(userData);
     }
+
+    // Muat draft tersimpan untuk siswa
+    const savedDraft = localStorage.getItem('journal_draft');
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        setActivity(parsed.activity || '');
+        setReflection(parsed.reflection || '');
+      } catch (e) {
+        // Abaikan
+      }
+    }
+
     fetchJournals();
   }, []);
+
+  // Simpan draft otomatis ke localStorage
+  useEffect(() => {
+    if (userRole === 'siswa' && (activity || reflection)) {
+      localStorage.setItem('journal_draft', JSON.stringify({ activity, reflection }));
+    }
+  }, [activity, reflection, userRole]);
 
   const fetchJournals = async () => {
     try {
       const response = await api.get('/journals');
       setJournals(response.data.data || []);
     } catch (err) {
-      console.error('Failed to fetch journals');
+      console.error('Gagal memuat daftar jurnal');
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (activity.trim().length < 10) {
+      setError('Catatan aktivitas minimal 10 karakter.');
+      return;
+    }
+
     setIsLoading(true);
     setMessage(null);
     setError(null);
 
     try {
       await api.post('/journals', { activity, reflection });
-      setMessage('Jurnal harian berhasil dikirim ke guru pembimbing!');
+      setMessage('Jurnal berhasil dikirim ke guru pembimbing!');
       setActivity('');
       setReflection('');
+      localStorage.removeItem('journal_draft');
       fetchJournals();
+      setTimeout(() => setMessage(null), 4000);
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message);
-      } else {
-        setError('Terjadi kesalahan pada server.');
-      }
+      setError(err.response?.data?.message || 'Terjadi kendala saat mengirimkan jurnal.');
     } finally {
       setIsLoading(false);
     }
@@ -77,277 +100,322 @@ const Journal = () => {
   const openReviewModal = (journal, status) => {
     setSelectedJournal(journal);
     setReviewStatus(status);
-    setTeacherFeedback(journal.feedback || (status === 'approved' ? 'Bagus, terus pertahankan kinerjanya!' : 'Perlu diperbaiki detail laporannya.'));
+    setTeacherFeedback(
+      journal.feedback ||
+      (status === 'approved'
+        ? 'Bagus, terus pertahankan kinerjanya!'
+        : 'Perlu diperbaiki dan dilengkapi detail laporannya.')
+    );
     setReviewModalOpen(true);
   };
 
   const submitReview = async () => {
     if (!selectedJournal) return;
+    setIsSubmittingReview(true);
     try {
-      await api.put(`/journals/${selectedJournal.id}/status`, {
+      await api.put(`/journals/${selectedJournal.id}`, {
         status: reviewStatus,
-        feedback: teacherFeedback.trim() || 'Telah diperiksa guru pembimbing'
+        feedback: teacherFeedback.trim() || 'Telah diperiksa oleh guru pembimbing'
       });
       setReviewModalOpen(false);
-      setMessage(`Jurnal berhasil di-${reviewStatus === 'approved' ? 'setujui' : 'tolak'} beserta catatan feedback.`);
+      setMessage(`Jurnal berhasil di-${reviewStatus === 'approved' ? 'setujui' : 'minta revisi'}.`);
       fetchJournals();
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       alert('Gagal mengupdate status jurnal.');
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
   const isTeacherOrAdmin = userRole === 'admin' || userRole === 'guru_pembimbing';
+  const isFormValid = activity.trim().length >= 10;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12 font-sans">
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 mb-2">
-            <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-            Laporan Kegiatan Harian PKL
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-            Jurnal Kegiatan Magang
-          </h2>
-          <p className="mt-1 text-xs sm:text-sm text-gray-500">
-            {isTeacherOrAdmin
-              ? 'Tinjau dan berikan feedback catatan harian siswa magang binaan Anda.'
-              : 'Laporkan aktivitas kerja, ilmu baru, dan refleksi harian selama masa magang.'}
-          </p>
+    <div className="space-y-6 animate-fadeIn">
+      <PageHeader
+        title={isTeacherOrAdmin ? 'Jurnal Siswa' : 'Jurnal'}
+        description={
+          isTeacherOrAdmin
+            ? 'Evaluasi catatan harian siswa magang dan berikan bimbingan tertulis.'
+            : 'Tuliskan aktivitas dan pembelajaran yang kamu peroleh hari ini di tempat magang.'
+        }
+      />
+
+      {/* Banner Pesan Sukses / Error */}
+      {message && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-fadeIn">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span>{message}</span>
         </div>
+      )}
 
-        {error && (
-          <div className="mb-6 rounded-2xl bg-red-50 p-4 border border-red-200 text-red-700 text-xs sm:text-sm font-semibold flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 shrink-0" /> {error}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-fadeIn">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* ─── FORMULIR JURNAL (KHUSUS SISWA) ─────────────────────── */}
+      {!isTeacherOrAdmin && (
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h2 className="text-sm font-bold text-slate-900">
+              Jurnal Hari Ini
+            </h2>
+            <span className="text-[11px] text-slate-400 font-medium">
+              Tersimpan otomatis sebagai draft
+            </span>
           </div>
-        )}
 
-        {message && (
-          <div className="mb-6 rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 shrink-0" /> {message}
-          </div>
-        )}
-
-        {/* Form Input Jurnal (Only for Siswa) */}
-        {!isTeacherOrAdmin && (
-          <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-sm border border-gray-200/90 mb-10">
-            <h3 className="text-base font-bold text-gray-900 tracking-tight mb-4 border-b border-gray-100 pb-3 flex items-center gap-2">
-              <Send className="w-4 h-4 text-blue-600" /> Tulis Laporan Hari Ini
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Aktivitas & Pekerjaan yang Dilakukan
-                </label>
-                <textarea
-                  rows={4}
-                  value={activity}
-                  onChange={(e) => setActivity(e.target.value)}
-                  placeholder="Contoh: Menginstalasi sistem operasi server, mendokumentasikan API backend, dan merakit kabel UTP jaringan..."
-                  className="w-full p-3 text-xs sm:text-sm bg-gray-50 border border-gray-300 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Refleksi / Pembelajaran Baru
-                </label>
-                <textarea
-                  rows={2}
-                  value={reflection}
-                  onChange={(e) => setReflection(e.target.value)}
-                  placeholder="Contoh: Mengetahui cara mengatasi packet loss dan konfigurasi subnet mask yang efisien..."
-                  className="w-full p-3 text-xs sm:text-sm bg-gray-50 border border-gray-300 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="activity-input"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700"
                 >
-                  <Send className="w-4 h-4" /> Kirim Jurnal Harian
-                </button>
+                  Apa yang kamu kerjakan hari ini? <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] font-mono text-slate-400">
+                  {activity.length} karakter (min. 10)
+                </span>
               </div>
-            </form>
-          </div>
-        )}
+              <textarea
+                id="activity-input"
+                rows={4}
+                required
+                value={activity}
+                onChange={(e) => setActivity(e.target.value)}
+                placeholder="Ceritakan tugas, proyek, atau pekerjaan yang kamu selesaikan hari ini..."
+                className="w-full p-3.5 text-xs bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:border-[#0c2340] focus:ring-2 focus:ring-[#0c2340]/10 outline-none resize-none leading-relaxed"
+              />
+            </div>
 
-        {/* List of Journals */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-bold text-gray-900">
-              {isTeacherOrAdmin ? 'Daftar Jurnal Siswa' : 'Riwayat Jurnal Anda'} ({journals.length})
-            </h3>
-          </div>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="reflection-input"
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700"
+                >
+                  Apa ilmu atau keterampilan baru yang kamu pelajari?
+                </label>
+                <span className="text-[11px] font-mono text-slate-400">
+                  {reflection.length} karakter
+                </span>
+              </div>
+              <textarea
+                id="reflection-input"
+                rows={3}
+                value={reflection}
+                onChange={(e) => setReflection(e.target.value)}
+                placeholder="Tuliskan wawasan baru, kendala yang dihadapi, atau cara kamu menyelesaikannya..."
+                className="w-full p-3.5 text-xs bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:border-[#0c2340] focus:ring-2 focus:ring-[#0c2340]/10 outline-none resize-none leading-relaxed"
+              />
+            </div>
 
-          {journals.length > 0 ? (
-            journals.map((journal) => {
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isLoading}
+                disabled={!isFormValid || isLoading}
+                leftIcon={Send}
+                className="sm:w-auto w-full"
+              >
+                Kirim Jurnal
+              </Button>
+
+              {!isFormValid && (
+                <span className="text-[11px] text-slate-500">
+                  Isi catatan aktivitas minimal 10 karakter untuk mengirim.
+                </span>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ─── TIMELINE / DAFTAR RIWAYAT JURNAL ────────────────────── */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+        <h2 className="text-sm font-bold text-slate-900">
+          {isTeacherOrAdmin ? 'Daftar Jurnal Siswa' : 'Riwayat Jurnal'}
+        </h2>
+
+        {journals.length === 0 ? (
+          <div className="text-center py-10 text-slate-400 space-y-2">
+            <BookOpen className="w-8 h-8 mx-auto opacity-40" />
+            <p className="text-xs font-semibold">Belum ada jurnal yang tercatat.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {journals.map((journal) => {
               const isApproved = journal.status === 'approved';
               const isRejected = journal.status === 'rejected';
 
               return (
                 <div
                   key={journal.id}
-                  className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-200/90 hover:shadow-md transition-all"
+                  className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-                        {journal.student_name ? journal.student_name.charAt(0) : 'J'}
+                  {/* Header Item */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#0c2340] text-white font-mono font-bold flex flex-col items-center justify-center text-[10px] leading-tight shrink-0">
+                        <span>{journal.date ? new Date(journal.date).getDate() : '-'}</span>
+                        <span className="text-[8px] text-slate-300">
+                          {journal.date ? new Date(journal.date).toLocaleDateString('id-ID', { month: 'short' }) : ''}
+                        </span>
                       </div>
                       <div>
-                        {journal.student_name && (
-                          <p className="font-bold text-sm text-gray-900 leading-tight">
+                        {/* Nama Siswa HANYA ditampilkan di dashboard Guru/Admin */}
+                        {isTeacherOrAdmin && journal.student_name && (
+                          <p className="font-bold text-slate-900 text-xs">
                             {journal.student_name}
                           </p>
                         )}
-                        <p className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
-                          <Calendar className="w-3 h-3 text-gray-400" />
-                          {new Date(journal.date).toLocaleDateString('id-ID', {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })}
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {journal.date
+                            ? new Date(journal.date).toLocaleDateString('id-ID', {
+                                weekday: 'long',
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                              })
+                            : '-'}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          isApproved
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : isRejected
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
+                    <div className="flex items-center gap-2 self-start sm:self-center">
+                      <Badge
+                        size="sm"
+                        status={isApproved ? 'hadir' : isRejected ? 'ditolak' : 'menunggu'}
                       >
-                        {isApproved ? 'Disetujui' : isRejected ? 'Ditolak' : 'Menunggu Review'}
-                      </span>
-
-                      {/* Teacher Actions */}
-                      {isTeacherOrAdmin && (
-                        <div className="flex items-center gap-1 ml-2">
-                          <button
-                            onClick={() => openReviewModal(journal, 'approved')}
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-colors"
-                            title="Setujui Jurnal dengan Catatan"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => openReviewModal(journal, 'rejected')}
-                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-bold transition-colors"
-                            title="Tolak Jurnal dengan Catatan"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
+                        {isApproved ? 'Disetujui Guru' : isRejected ? 'Perlu Revisi' : 'Menunggu Guru'}
+                      </Badge>
                     </div>
                   </div>
 
-                  {/* Body Content */}
-                  <div className="space-y-3 text-xs sm:text-sm">
+                  {/* Isi Aktivitas & Refleksi */}
+                  <div className="space-y-2 text-xs">
                     <div>
-                      <p className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-1">
-                        Aktivitas Kerja:
-                      </p>
-                      <p className="text-gray-800 whitespace-pre-line leading-relaxed bg-gray-50/70 p-3.5 rounded-2xl border border-gray-100">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Aktivitas Pekerjaan
+                      </span>
+                      <p className="mt-0.5 text-slate-800 leading-relaxed font-medium">
                         {journal.activity}
                       </p>
                     </div>
 
                     {journal.reflection && (
-                      <div>
-                        <p className="font-bold text-blue-700 text-xs uppercase tracking-wider mb-1">
-                          Refleksi & Pelajaran:
-                        </p>
-                        <p className="text-gray-700 italic bg-blue-50/40 p-3 rounded-xl border border-blue-100/60 leading-relaxed">
+                      <div className="pt-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Ilmu / Keterampilan yang Dipelajari
+                        </span>
+                        <p className="mt-0.5 text-slate-700 leading-relaxed italic">
                           "{journal.reflection}"
                         </p>
                       </div>
                     )}
-
-                    {/* Teacher Feedback Note */}
-                    {journal.feedback && (
-                      <div className="mt-3 p-3.5 bg-slate-900 text-white rounded-2xl flex items-start gap-3">
-                        <MessageSquare className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                        <div className="text-xs">
-                          <p className="font-bold text-blue-300">Catatan Guru Pembimbing:</p>
-                          <p className="text-slate-200 mt-0.5">{journal.feedback}</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
+
+                  {/* Catatan / Feedback Guru Pembimbing */}
+                  {journal.feedback && (
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs flex items-start gap-2.5">
+                      <MessageSquare className="w-4 h-4 text-[#d97706] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-slate-900 text-[11px]">
+                          Catatan Guru Pembimbing:
+                        </span>
+                        <p className="mt-0.5 text-slate-600 leading-relaxed">
+                          {journal.feedback}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Aksi Guru: Setujui / Revisi */}
+                  {isTeacherOrAdmin && (
+                    <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200/60">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={X}
+                        onClick={() => openReviewModal(journal, 'rejected')}
+                      >
+                        Minta Revisi
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={Check}
+                        onClick={() => openReviewModal(journal, 'approved')}
+                      >
+                        Setujui Jurnal
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
-            })
-          ) : (
-            <div className="bg-white rounded-3xl p-12 text-center text-gray-400 border border-gray-200">
-              <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-              <p className="font-bold text-gray-700">Belum ada jurnal kegiatan</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Laporan jurnal harian yang dikirim akan tersimpan di sini.
-              </p>
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ─── MODAL REVIEW GURU ───────────────────────────────────── */}
+      <Modal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        title={reviewStatus === 'approved' ? 'Setujui Jurnal Siswa' : 'Minta Revisi Jurnal'}
+        description="Berikan bimbingan atau catatan evaluasi untuk siswa bersangkutan."
+      >
+        <div className="space-y-4 text-xs">
+          {selectedJournal && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <p className="font-bold text-slate-900">{selectedJournal.student_name}</p>
+              <p className="text-slate-600 mt-1 line-clamp-3">"{selectedJournal.activity}"</p>
             </div>
           )}
-        </div>
-      </main>
 
-      {/* Review & Feedback Modal for Teachers */}
-      {reviewModalOpen && selectedJournal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
-            <h4 className="font-extrabold text-gray-900 text-lg mb-1">
-              {reviewStatus === 'approved' ? 'Setujui Jurnal' : 'Tolak Jurnal'}
-            </h4>
-            <p className="text-xs text-gray-500 mb-4">
-              Siswa: <strong>{selectedJournal.student_name}</strong>
-            </p>
+          <div>
+            <label
+              htmlFor="feedback-textarea"
+              className="block font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+            >
+              Catatan Umpan Balik Guru
+            </label>
+            <textarea
+              id="feedback-textarea"
+              rows={4}
+              value={teacherFeedback}
+              onChange={(e) => setTeacherFeedback(e.target.value)}
+              placeholder="Tuliskan masukan untuk siswa..."
+              className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:border-[#0c2340] outline-none resize-none leading-relaxed"
+            />
+          </div>
 
-            <div className="mb-4">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Catatan & Saran untuk Siswa
-              </label>
-              <textarea
-                rows={3}
-                value={teacherFeedback}
-                onChange={(e) => setTeacherFeedback(e.target.value)}
-                placeholder="Berikan masukan atau catatan perbaikan..."
-                className="w-full p-3 text-xs sm:text-sm bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setReviewModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
-              >
-                Batal
-              </button>
-              <button
-                onClick={submitReview}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md ${
-                  reviewStatus === 'approved'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-              >
-                Simpan & Beri Feedback
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setReviewModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              variant={reviewStatus === 'approved' ? 'primary' : 'accent'}
+              size="md"
+              isLoading={isSubmittingReview}
+              onClick={submitReview}
+            >
+              {reviewStatus === 'approved' ? 'Simpan & Setujui' : 'Kirim Catatan Revisi'}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

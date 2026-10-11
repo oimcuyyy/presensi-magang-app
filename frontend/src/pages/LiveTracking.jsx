@@ -3,7 +3,20 @@ import { useSocket } from '../context/SocketContext';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Navigation, Users, Search, Target, Compass, Signal, Clock, Building, School, ExternalLink, X } from 'lucide-react';
+import {
+  Navigation,
+  Users,
+  Search,
+  Target,
+  Clock,
+  Building,
+  School,
+  X,
+  Radio
+} from 'lucide-react';
+import PageHeader from '../components/common/PageHeader';
+import Button from '../components/common/Button';
+import logoSmkn20 from '../assets/logo-smkn20.png';
 
 // Fix Leaflet marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -24,27 +37,35 @@ const MapController = ({ targetCoords, zoom }) => {
   return null;
 };
 
-// Auto-frame all active students
+// Fit bounds to show all active students
 const FitAllBounds = ({ users, trigger }) => {
   const map = useMap();
   useEffect(() => {
     if (users && users.length > 0) {
-      const bounds = L.latLngBounds(users.map(u => [u.latitude, u.longitude]));
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+      const bounds = L.latLngBounds(users.map((u) => [u.latitude, u.longitude]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     }
   }, [trigger, users, map]);
   return null;
 };
 
-// SMK Negeri 20 Jakarta Official Benchmark
+// Titik Koordinat Kampus SMK Negeri 20 Jakarta
 const SMKN20_COORDS = [-6.284000, 106.793800];
 
 const SchoolIcon = new L.DivIcon({
   className: 'custom-div-icon',
-  html: `<div style="background:#ffffff;border:2.5px solid #fbbf24;border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4);padding:3px;overflow:hidden;"><img src="/logo-smkn20.png" alt="SMKN 20" style="width:100%;height:100%;object-fit:contain;"/></div>`,
-  iconSize: [42, 42],
-  iconAnchor: [21, 21],
-  popupAnchor: [0, -21]
+  html: `<div style="background:#ffffff;border:2.5px solid #d97706;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,0,0,0.25);padding:2px;overflow:hidden;"><img src="${logoSmkn20}" alt="SMKN 20" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.onerror=null;this.src='/logo-smkn20.png';"/></div>`,
+  iconSize: [38, 38],
+  iconAnchor: [19, 19],
+  popupAnchor: [0, -19]
+});
+
+const StudentPinIcon = new L.DivIcon({
+  className: 'custom-div-icon',
+  html: `<div style="background:#0c2340;border:2px solid #ffffff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 8px rgba(0,0,0,0.25);color:#f59e0b;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16]
 });
 
 const LiveTracking = () => {
@@ -62,7 +83,7 @@ const LiveTracking = () => {
     socket.on('live_locations', (users) => {
       setActiveUsers(users);
       if (selectedUser) {
-        const updated = users.find(u => u.userId === selectedUser.userId);
+        const updated = users.find((u) => u.userId === selectedUser.userId);
         if (updated) setSelectedUser(updated);
       }
     });
@@ -72,7 +93,7 @@ const LiveTracking = () => {
     };
   }, [socket, selectedUser]);
 
-  const defaultCenter = SMKN20_COORDS; // Kampus SMK Negeri 20 Jakarta
+  const defaultCenter = SMKN20_COORDS;
   const mapCenter = activeUsers.length > 0
     ? [activeUsers[0].latitude, activeUsers[0].longitude]
     : defaultCenter;
@@ -83,314 +104,188 @@ const LiveTracking = () => {
   };
 
   const handleFitAll = () => {
-    setFitTrigger(prev => prev + 1);
+    setFitTrigger((prev) => prev + 1);
     setSelectedUser(null);
   };
 
-  const filteredUsers = activeUsers.filter(u =>
+  const filteredUsers = activeUsers.filter((u) =>
     u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.kelas?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.nama_instansi?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] md:h-screen bg-slate-900 flex flex-col relative overflow-hidden font-sans">
-      {/* Top Dispatch Control Header */}
-      <header className="bg-slate-950/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 sm:px-6 flex justify-between items-center z-20 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
-            <Navigation className="w-4 h-4" />
+    <div className="space-y-4 animate-fadeIn">
+      <PageHeader
+        title="Peta Siswa"
+        description="Pantau keberadaan siswa PKL yang sedang membagikan lokasi secara langsung di tempat magang."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={School}
+              onClick={() => setFlyTarget(SMKN20_COORDS)}
+            >
+              Ke SMKN 20
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={Target}
+              onClick={handleFitAll}
+              disabled={activeUsers.length === 0}
+            >
+              Lihat Semua Siswa ({activeUsers.length})
+            </Button>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-white tracking-tight leading-none">
-                Pusat Telemetri Satelit Siswa
-              </h1>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-950 text-emerald-400 border border-emerald-800">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                Live GPS
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Pantau koordinat dan batas radius toleransi GPS siswa magang aktif.
-            </p>
-          </div>
-        </div>
+        }
+      />
 
-        <div className="flex items-center gap-2">
-          {/* Quick Snap to SMKN 20 Jakarta */}
-          <button
-            onClick={() => {
-              setFlyTarget(SMKN20_COORDS);
-              setSelectedUser(null);
-            }}
-            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-            title="Pusatkan peta ke Kampus SMK Negeri 20 Jakarta"
+      {/* Surface Peta & Daftar Siswa */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden flex flex-col lg:flex-row h-[620px] relative">
+        {/* Kontainer Peta dengan Tile Kalem CARTO Positron */}
+        <div className="flex-1 relative h-full">
+          <MapContainer
+            center={mapCenter}
+            zoom={14}
+            scrollWheelZoom={true}
+            className="h-full w-full z-10"
           >
-            <School className="w-3.5 h-3.5" />
-            <span>SMKN 20 Jakarta</span>
-          </button>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
 
-          <button
-            onClick={handleFitAll}
-            disabled={activeUsers.length === 0}
-            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 flex items-center gap-1.5"
-            title="Lihat seluruh siswa di peta"
-          >
-            <Target className="w-3.5 h-3.5 text-slate-400" />
-            <span className="hidden sm:inline">Semua Siswa</span>
-          </button>
+            <MapController targetCoords={flyTarget} />
+            <FitAllBounds users={activeUsers} trigger={fitTrigger} />
 
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>{activeUsers.length} Aktif</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Map Viewport & Drawer */}
-      <div className="flex-1 relative">
-        <MapContainer
-          center={mapCenter}
-          zoom={15}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          <MapController targetCoords={flyTarget} />
-          <FitAllBounds users={activeUsers} trigger={fitTrigger} />
-
-          {/* Official SMKN 20 Jakarta Campus Landmark */}
-          <Marker position={SMKN20_COORDS} icon={SchoolIcon}>
-            <Popup className="font-sans">
-              <div className="p-1 space-y-1">
-                <p className="font-black text-xs text-blue-900">SMK Negeri 20 Jakarta</p>
-                <p className="text-[10px] text-slate-600">Jl. Melati No. 24, Cilandak Barat, Jakarta Selatan</p>
-                <div className="text-[9px] font-bold text-amber-600 uppercase">Kampus Induk & Geofencing Sekolah</div>
-              </div>
-            </Popup>
-          </Marker>
-          <Circle
-            center={SMKN20_COORDS}
-            radius={200}
-            pathOptions={{ color: '#1e3a8a', fillColor: '#3b82f6', fillOpacity: 0.18, weight: 2 }}
-          />
-
-          {activeUsers.map((user) => {
-            const isSelected = selectedUser?.userId === user.userId;
-            const accuracy = user.accuracy ? Math.round(user.accuracy) : 15;
-            const photoUrl = user.photo
-              ? (import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}${user.photo}` : user.photo)
-              : null;
-
-            const customIcon = L.divIcon({
-              className: 'custom-avatar-pin',
-              html: `
-                <div style="position: relative; width: 40px; height: 40px;">
-                  <div style="
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
-                    border: 2.5px solid ${user.role === 'siswa' ? '#2563eb' : '#059669'};
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 0 2px white;
-                    overflow: hidden;
-                    background: white;
-                    transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'};
-                    transition: transform 0.2s ease;
-                  ">
-                    ${photoUrl
-                      ? `<img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0f172a&color=fff'"/>`
-                      : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #0f172a; font-size: 14px;">${user.name?.charAt(0).toUpperCase() || 'U'}</div>`
-                    }
-                  </div>
-                  <span style="
-                    position: absolute;
-                    bottom: 0px;
-                    right: 0px;
-                    width: 11px;
-                    height: 11px;
-                    background: #10b981;
-                    border: 2px solid white;
-                    border-radius: 50%;
-                  "></span>
+            {/* Marker SMKN 20 Jakarta */}
+            <Marker position={SMKN20_COORDS} icon={SchoolIcon}>
+              <Popup>
+                <div className="p-1 space-y-1">
+                  <p className="font-extrabold text-xs text-[#0c2340]">SMK Negeri 20 Jakarta</p>
+                  <p className="text-[11px] text-slate-500">Kampus Pusat • Cilandak</p>
                 </div>
-              `,
-              iconSize: [40, 40],
-              iconAnchor: [20, 20],
-              popupAnchor: [0, -20]
-            });
+              </Popup>
+            </Marker>
 
-            return (
-              <React.Fragment key={user.socketId || user.userId}>
+            {/* Marker Siswa yang Aktif Berbagi Lokasi */}
+            {activeUsers.map((u) => (
+              <React.Fragment key={u.userId || u.socketId}>
                 <Marker
-                  position={[user.latitude, user.longitude]}
-                  icon={customIcon}
+                  position={[u.latitude, u.longitude]}
+                  icon={StudentPinIcon}
                   eventHandlers={{
-                    click: () => setSelectedUser(user)
+                    click: () => handleSelectUser(u)
                   }}
                 >
-                  <Popup className="custom-leaflet-popup">
-                    <div className="p-1 min-w-[210px] max-w-[250px] font-sans text-slate-800">
-                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
-                        {photoUrl ? (
-                          <img
-                            src={photoUrl}
-                            alt={user.name}
-                            className="w-10 h-10 rounded-lg object-cover border border-slate-300"
-                            onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0f172a&color=fff`; }}
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-800 font-bold flex items-center justify-center text-sm border border-slate-200">
-                            {user.name?.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-slate-900 text-xs truncate leading-tight">{user.name}</h4>
-                          <span className="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700">
-                            {user.role?.replace('_', ' ')}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="py-2 space-y-1 text-xs text-slate-600">
-                        {user.kelas && (
-                          <p className="text-[11px] truncate">
-                            <span className="font-semibold text-slate-700">Kelas:</span> {user.kelas} ({user.jurusan})
-                          </p>
-                        )}
-                        {user.nama_instansi && (
-                          <p className="text-[11px] truncate">
-                            <span className="font-semibold text-slate-700">Mitra:</span> {user.nama_instansi}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between pt-1 text-[10px] text-slate-500 border-t border-slate-100">
-                          <span className="text-emerald-700 font-bold">
-                            Toleransi: &plusmn;{accuracy}m
-                          </span>
-                          <span className="font-mono">
-                            {new Date(user.timestamp).toLocaleTimeString('id-ID')}
-                          </span>
-                        </div>
-                      </div>
-
-                      <a
-                        href={`https://www.google.com/maps?q=${user.latitude},${user.longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-center rounded-lg text-xs font-semibold transition-colors mt-1"
-                      >
-                        Buka di Google Maps
-                      </a>
+                  <Popup>
+                    <div className="p-1 space-y-1 text-xs">
+                      <p className="font-bold text-slate-900">{u.name}</p>
+                      <p className="text-[11px] text-slate-600">{u.nama_instansi || 'Lokasi Magang'}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        Akurasi: &plusmn;{u.accuracy || 10} m
+                      </p>
                     </div>
                   </Popup>
                 </Marker>
 
-                {/* Real GPS Accuracy Radius Perimeter */}
+                {/* Lingkaran Akurasi GPS */}
                 <Circle
-                  center={[user.latitude, user.longitude]}
-                  radius={accuracy}
+                  center={[u.latitude, u.longitude]}
+                  radius={u.accuracy || 30}
                   pathOptions={{
-                    color: user.role === 'siswa' ? '#2563eb' : '#059669',
-                    fillColor: user.role === 'siswa' ? '#3b82f6' : '#10b981',
-                    fillOpacity: 0.1,
-                    weight: 1.25,
-                    dashArray: '4, 6'
+                    color: '#0c2340',
+                    fillColor: '#d97706',
+                    fillOpacity: 0.15,
+                    weight: 1.5
                   }}
                 />
               </React.Fragment>
-            );
-          })}
-        </MapContainer>
+            ))}
+          </MapContainer>
 
-        {/* Floating Telemetry Drawer */}
-        {isSidebarOpen && (
-          <div className="absolute top-4 right-4 z-[1000] w-80 max-w-[calc(100vw-2rem)] bg-slate-950/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-800 overflow-hidden flex flex-col max-h-[calc(100%-2rem)] text-white">
-            <div className="p-3.5 border-b border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-blue-500" /> Siswa Aktif ({activeUsers.length})
-                </span>
-                <button
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="text-slate-500 hover:text-white p-1 rounded-lg"
-                  aria-label="Tutup panel"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+          {/* Toggle Tombol Panel Siswa di Mobile */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="lg:hidden absolute bottom-4 right-4 z-20 px-3.5 py-2 rounded-xl bg-white shadow-lg border border-slate-200 text-xs font-bold text-slate-900 flex items-center gap-1.5"
+          >
+            <Users className="w-4 h-4 text-[#0c2340]" />
+            <span>Daftar Siswa ({activeUsers.length})</span>
+          </button>
+        </div>
 
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cari nama, kelas, tempat..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
-                />
-              </div>
+        {/* Panel Samping Siswa Aktif */}
+        <div
+          className={`${
+            isSidebarOpen ? 'flex' : 'hidden lg:flex'
+          } w-full lg:w-80 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex-col h-72 lg:h-full z-20`}
+        >
+          {/* Header Panel & Search */}
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900">
+                Siswa Aktif ({activeUsers.length})
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live GPS
+              </span>
             </div>
 
-            <div className="overflow-y-auto divide-y divide-slate-800 max-h-96">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => {
-                  const isSelected = selectedUser?.userId === user.userId;
-                  return (
-                    <button
-                      key={user.socketId || user.userId}
-                      onClick={() => handleSelectUser(user)}
-                      className={`w-full text-left p-3 flex items-center gap-3 transition-colors ${
-                        isSelected ? 'bg-blue-600/20 border-l-2 border-blue-500' : 'hover:bg-slate-900'
-                      }`}
-                    >
-                      <div className="relative shrink-0">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 text-white font-bold flex items-center justify-center text-xs overflow-hidden border border-slate-700">
-                          {user.photo ? (
-                            <img
-                              src={import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}${user.photo}` : user.photo}
-                              alt={user.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            user.name?.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 border border-slate-950 absolute bottom-0 right-0" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-white truncate">{user.name}</p>
-                          <span className="font-mono text-[10px] text-slate-500">
-                            {new Date(user.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {user.kelas || user.nama_instansi || user.role}
-                        </p>
-                        <p className="text-[10px] text-emerald-400 font-medium">
-                          GPS: &plusmn;{user.accuracy || 15}m
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="p-6 text-center text-slate-500 text-xs">
-                  {activeUsers.length === 0
-                    ? 'Belum ada siswa yang mengaktifkan pelacakan GPS.'
-                    : 'Tidak ada siswa yang sesuai pencarian.'}
-                </div>
-              )}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Cari nama siswa..."
+                className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 outline-none focus:border-[#0c2340]"
+              />
             </div>
           </div>
-        )}
+
+          {/* Daftar Siswa */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1">
+            {filteredUsers.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 space-y-2">
+                <Users className="w-8 h-8 mx-auto opacity-30" />
+                <p className="text-xs font-semibold">
+                  {activeUsers.length === 0
+                    ? 'Belum ada siswa yang membagikan lokasi.'
+                    : 'Tidak ada siswa yang cocok dengan pencarian.'}
+                </p>
+              </div>
+            ) : (
+              filteredUsers.map((u) => {
+                const isSelected = selectedUser?.userId === u.userId;
+                return (
+                  <button
+                    key={u.userId || u.socketId}
+                    type="button"
+                    onClick={() => handleSelectUser(u)}
+                    className={`w-full text-left p-3 rounded-xl transition-all ${
+                      isSelected
+                        ? 'bg-[#0c2340] text-white shadow-sm'
+                        : 'hover:bg-slate-50 text-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold truncate">{u.name}</p>
+                      <span className={`text-[10px] font-mono ${isSelected ? 'text-amber-300' : 'text-slate-400'}`}>
+                        &plusmn;{u.accuracy}m
+                      </span>
+                    </div>
+                    <p className={`text-[11px] truncate mt-0.5 ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
+                      {u.nama_instansi || 'Lokasi PKL'}
+                    </p>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -2,45 +2,44 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  CreditCard,
   Printer,
   Maximize2,
   X,
+  CreditCard,
+  QrCode,
   ShieldCheck,
   Building,
-  School,
   User,
-  QrCode,
-  CheckCircle2,
-  Barcode,
-  Info
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import api from '../services/api';
 import { BrandMark } from '../components/BrandLogo';
+import PageHeader from '../components/common/PageHeader';
+import Button from '../components/common/Button';
 
-// Helper component to render a realistic 1D Code128 vector barcode representation for the student's NISN
-const Barcode1D = ({ value = '1234567890', height = 36 }) => {
-  // Deterministic bar widths based on char codes
+// 1D Barcode NISN Component (Vector SVG presisi)
+const Barcode1D = ({ value = '1234567890', height = 34 }) => {
   const bars = [];
   const chars = value.split('');
-  for (let i = 0; i < 48; i++) {
+  for (let i = 0; i < 46; i++) {
     const charCode = (chars[i % chars.length]?.charCodeAt(0) || 50) + i;
     const isThick = charCode % 3 === 0;
-    const isSpace = charCode % 5 === 0 && i > 2 && i < 45;
-    bars.push({ isSpace, width: isThick ? 2.5 : 1.2 });
+    const isSpace = charCode % 5 === 0 && i > 2 && i < 43;
+    bars.push({ isSpace, width: isThick ? 2.4 : 1.2 });
   }
 
   return (
     <div className="flex flex-col items-center">
-      <svg height={height} className="w-full max-w-[200px]" viewBox="0 0 100 30" preserveAspectRatio="none">
-        <rect width="100" height="30" fill="white" />
+      <svg height={height} className="w-full max-w-[190px]" viewBox="0 0 100 28" preserveAspectRatio="none">
+        <rect width="100" height="28" fill="white" />
         {bars.map((bar, idx) => {
           if (bar.isSpace) return null;
-          const x = idx * 2.1;
-          return <rect key={idx} x={x} y="0" width={bar.width} height="30" fill="#0f172a" />;
+          const x = idx * 2.2;
+          return <rect key={idx} x={x} y="0" width={bar.width} height="28" fill="#0c2340" />;
         })}
       </svg>
-      <span className="font-mono text-[9px] tracking-[0.25em] text-slate-700 font-bold mt-0.5">
+      <span className="font-mono text-[9px] tracking-[0.2em] text-slate-800 font-bold mt-0.5">
         *{value}*
       </span>
     </div>
@@ -55,8 +54,7 @@ const StudentCard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
-  const [cardSide, setCardSide] = useState('front'); // 'front' | 'back'
-  const cardRef = useRef(null);
+  const [isFlipped, setIsFlipped] = useState(false);
 
   useEffect(() => {
     fetchCardData();
@@ -71,7 +69,7 @@ const StudentCard = () => {
       setStudent(res.data.data);
     } catch (err) {
       console.error('Failed to fetch card data:', err);
-      setError(err.response?.data?.message || 'Gagal memuat kartu identitas siswa.');
+      setError(err.response?.data?.message || 'Gagal memuat kartu siswa.');
     } finally {
       setIsLoading(false);
     }
@@ -83,32 +81,27 @@ const StudentCard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-slate-600 text-xs font-semibold">Memuat spesifikasi kartu identitas siswa...</p>
-        </div>
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 space-y-3">
+        <div className="w-8 h-8 border-3 border-[#0c2340] border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-600 text-xs font-semibold">Memuat kartu siswa...</p>
       </div>
     );
   }
 
   if (error || !student) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6">
+      <div className="min-h-[50vh] flex items-center justify-center p-6">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-sm text-center space-y-4">
           <div className="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
             <AlertCircle className="w-5 h-5" />
           </div>
-          <div className="space-y-1">
+          <div>
             <h2 className="text-sm font-bold text-slate-900">Kartu Tidak Ditemukan</h2>
-            <p className="text-xs text-slate-500">{error || 'Data siswa belum tersedia dalam basis data.'}</p>
+            <p className="text-xs text-slate-500 mt-1">{error || 'Data siswa belum terdaftar.'}</p>
           </div>
-          <button
-            onClick={fetchCardData}
-            className="w-full py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800"
-          >
+          <Button variant="primary" size="sm" onClick={fetchCardData} className="w-full">
             Muat Ulang
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -119,303 +112,255 @@ const StudentCard = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-100/70 py-8 px-4 sm:px-6 lg:px-8 font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
-      {/* Action Bar (Hidden when printing) */}
-      <div className="max-w-4xl mx-auto mb-6 print:hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-800 border border-slate-300 mb-1.5">
-              Dokumen Resmi Siswa
+    <div className="space-y-6 animate-fadeIn">
+      {/* Header Halaman (Disembunyikan saat cetak) */}
+      <div className="print:hidden">
+        <PageHeader
+          title="Kartu Siswa"
+          description="Tunjukkan kartu ini kepada guru atau petugas piket untuk dipindai saat presensi."
+          actions={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={QrCode}
+                onClick={() => setIsZoomModalOpen(true)}
+              >
+                Perbesar Barcode
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={Printer}
+                onClick={handlePrint}
+              >
+                Cetak Kartu
+              </Button>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Kartu Identitas Praktik Kerja Lapangan
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Standar ISO/IEC 7810 ID-1 CR80 dengan Tanda Tangan Kriptografi HMAC SHA-256.
-            </p>
-          </div>
+          }
+        />
+      </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsZoomModalOpen(true)}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
-            >
-              <QrCode className="w-4 h-4 text-slate-600" />
-              Perbesar Barcode
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
-            >
-              <Printer className="w-4 h-4" />
-              Cetak Kartu Fisik
-            </button>
-          </div>
+      {/* Kontrol Sisi Kartu (Depan / Belakang) */}
+      <div className="flex justify-center print:hidden">
+        <div className="bg-slate-200/80 p-1 rounded-xl flex gap-1">
+          <button
+            type="button"
+            onClick={() => setIsFlipped(false)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              !isFlipped ? 'bg-white text-[#0c2340] shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Depan
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsFlipped(true)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              isFlipped ? 'bg-white text-[#0c2340] shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Belakang
+          </button>
         </div>
       </div>
 
-      {/* Main Card Viewport */}
-      <div className="max-w-md mx-auto">
-        {/* Toggle Front vs Back View (Print: Shows Front) */}
-        <div className="flex justify-center mb-4 print:hidden">
-          <div className="bg-slate-200/90 p-1 rounded-xl flex gap-1">
-            <button
-              onClick={() => setCardSide('front')}
-              className={`px-3.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                cardSide === 'front' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Sisi Depan (Identitas)
-            </button>
-            <button
-              onClick={() => setCardSide('back')}
-              className={`px-3.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                cardSide === 'back' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Sisi Belakang (Ketentuan)
-            </button>
-          </div>
-        </div>
-
-        {/* The Card - CR80 Aspect Ratio (85.6mm x 53.98mm = ~1.586:1) */}
+      {/* Kartu Siswa 3D Flip Container (CR80 Aspect Ratio) */}
+      <div className="max-w-md mx-auto perspective-1000 print:max-w-none">
         <div
-          ref={cardRef}
-          className="relative bg-white text-slate-900 rounded-2xl shadow-lg overflow-hidden border border-slate-300 print:shadow-none print:m-0 print:border print:border-slate-400 print:rounded-xl"
-          style={{ minHeight: '520px' }}
+          className={`relative w-full transition-transform duration-500 transform-style-3d ${
+            isFlipped ? 'rotate-y-180' : ''
+          }`}
+          style={{ minHeight: '480px' }}
         >
-          {/* Subtle Security Guilloche Background Lattice */}
+          {/* ─── SISI DEPAN (IDENTITAS SISWA) ────────────────────────── */}
           <div
-            className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:12px_12px] opacity-70 pointer-events-none"
-            aria-hidden="true"
-          />
-
-          {cardSide === 'front' ? (
-            <div className="relative p-6 flex flex-col justify-between h-full z-10">
-              {/* Institutional Card Header */}
-              <div className="border-b-2 border-slate-900 pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <BrandMark size={36} />
-                    <div className="leading-tight">
-                      <p className="text-[8px] font-black uppercase tracking-wider text-blue-900">
-                        DINAS PENDIDIKAN PROVINSI DKI JAKARTA
-                      </p>
-                      <h2 className="text-xs font-black tracking-tight text-slate-950">
-                        SMK NEGERI 20 JAKARTA
-                      </h2>
-                      <p className="text-[8.5px] font-extrabold text-amber-600 uppercase tracking-tight">
-                        KARTU IDENTITAS RESMI SISWA PKL
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="px-2 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300">
-                    Aktif PKL
-                  </span>
-                </div>
-              </div>
-
-              {/* Portrait & Identification Block */}
-              <div className="my-4 grid grid-cols-[108px_1fr] gap-4 items-center">
-                {/* Official Photo Box */}
-                <div className="relative">
-                  <div className="w-[108px] h-[138px] rounded-lg overflow-hidden bg-slate-100 border-2 border-slate-800 shadow-sm flex items-center justify-center">
-                    {photoUrl ? (
-                      <img
-                        src={photoUrl}
-                        alt={student.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=0f172a&color=fff&size=256`;
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100">
-                        <User className="w-10 h-10 mb-1" />
-                        <span className="text-[9px] font-bold uppercase">Pas Foto</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* Holographic Verification Mark */}
-                  <div className="absolute -bottom-1.5 -right-1.5 bg-slate-900 text-white rounded-full p-1 shadow border border-white">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                  </div>
-                </div>
-
-                {/* Identity Details */}
-                <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                      Nama Peserta Didik
-                    </span>
-                    <h3 className="text-sm font-black text-slate-950 leading-tight">
-                      {student.name}
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200">
-                    <div>
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                        NISN
-                      </span>
-                      <p className="font-mono text-xs font-bold text-slate-900">
-                        {student.nisn || '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                        Kelas
-                      </span>
-                      <p className="text-xs font-bold text-slate-900">
-                        {student.kelas || '-'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-1 border-t border-slate-200">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                      Program Keahlian
-                    </span>
-                    <p className="text-xs font-semibold text-slate-800 truncate">
-                      {student.jurusan || '-'}
+            className={`w-full bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-300 overflow-hidden p-6 flex flex-col justify-between backface-hidden print:shadow-none print:border-slate-500 print:rounded-xl`}
+            style={{ minHeight: '480px' }}
+          >
+            {/* Header Resmi Kartu */}
+            <div className="border-b-2 border-[#0c2340] pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <BrandMark size={38} />
+                  <div className="leading-tight">
+                    <p className="text-[8.5px] font-black uppercase tracking-wider text-slate-500">
+                      DINAS PENDIDIKAN PROVINSI DKI JAKARTA
+                    </p>
+                    <h2 className="text-xs font-black tracking-tight text-[#0c2340]">
+                      SMK NEGERI 20 JAKARTA
+                    </h2>
+                    <p className="text-[9px] font-extrabold text-[#d97706] uppercase tracking-tight">
+                      KARTU IDENTITAS SISWA PKL
                     </p>
                   </div>
+                </div>
 
-                  {student.nama_instansi && (
-                    <div className="pt-1 border-t border-slate-200">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                        Unit Industri / Tempat PKL
-                      </span>
-                      <p className="text-xs font-bold text-blue-700 truncate">
-                        {student.nama_instansi}
-                      </p>
+                <span className="px-2 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300">
+                  Aktif PKL
+                </span>
+              </div>
+            </div>
+
+            {/* Foto dan Biodata Siswa */}
+            <div className="my-4 grid grid-cols-[100px_1fr] gap-4 items-center">
+              {/* Foto Siswa */}
+              <div className="relative">
+                <div className="w-[100px] h-[130px] rounded-xl overflow-hidden bg-slate-100 border-2 border-[#0c2340] shadow-sm flex items-center justify-center">
+                  {photoUrl ? (
+                    <img
+                      src={photoUrl}
+                      alt={student.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=0c2340&color=fff&size=256`;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100">
+                      <User className="w-8 h-8 mb-1" />
+                      <span className="text-[9px] font-bold uppercase">Pas Foto</span>
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Barcode & QR Verification Section */}
-              <div className="mt-auto bg-slate-50 rounded-xl p-3.5 border border-slate-200 flex items-center justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-1.5 text-slate-800">
-                    <Barcode className="w-3.5 h-3.5 text-slate-700" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      Kode Barcode Absensi
-                    </span>
-                  </div>
-                  {/* 1D Laser Barcode Representation */}
-                  <Barcode1D value={student.nisn || String(student.id)} height={32} />
-                </div>
-
-                {/* 2D Cryptographic QR Code */}
-                <div
-                  onClick={() => setIsZoomModalOpen(true)}
-                  className="bg-white p-1.5 rounded-lg border border-slate-300 shadow-sm cursor-pointer hover:border-slate-800 transition-colors shrink-0"
-                  title="Klik untuk memperbesar QR Code"
-                >
-                  <QRCodeSVG
-                    value={student.qr_token || `PRESENSI:${student.id}:${student.nisn}`}
-                    size={72}
-                    level="M"
-                    includeMargin={false}
-                  />
+                <div className="absolute -bottom-1.5 -right-1.5 bg-[#0c2340] text-amber-400 rounded-full p-1 shadow border border-white">
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 </div>
               </div>
 
-              {/* Micro Footer */}
-              <div className="pt-2.5 mt-2.5 border-t border-slate-200 flex items-center justify-between text-[9px] text-slate-500 font-mono">
-                <span>AUTH_TOKEN: SHA256-HMAC</span>
-                <span>TA 2026/2027</span>
-              </div>
-            </div>
-          ) : (
-            /* Card Back: Institutional Legal Rules & Validation */
-            <div className="relative p-6 flex flex-col justify-between h-full z-10 text-xs">
-              <div className="space-y-4">
-                <div className="border-b-2 border-slate-900 pb-2">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                    TATA TERTIB & KETENTUAN PENGGUNAAN KARTU
-                  </h3>
-                  <p className="text-[10px] text-slate-500 font-bold">
-                    Pokja Praktik Kerja Lapangan (PKL) • SMK Negeri 20 Jakarta
+              {/* Detail Identitas */}
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Nama Siswa
+                  </span>
+                  <p className="font-extrabold text-slate-900 leading-tight">
+                    {student.name}
                   </p>
                 </div>
 
-                <ol className="list-decimal list-outside pl-4 space-y-2 text-[11px] text-slate-700 leading-relaxed">
-                  <li>Kartu ini adalah identitas resmi siswa SMK Negeri 20 Jakarta selama penugasan PKL.</li>
-                  <li>Wajib ditunjukkan kepada petugas absensi sekolah atau pembimbing industri saat kehadiran.</li>
-                  <li>Barcode dan QR code unik terenkripsi untuk memvalidasi identitas dan waktu presensi.</li>
-                  <li>Dilarang keras memindahtangankan atau memalsukan kartu identitas siswa.</li>
-                  <li>Segera lapor ke pihak sekolah apabila kartu hilang atau barcode mengalami kerusakan fisik.</li>
-                </ol>
-              </div>
-
-              {/* Signature Endorsement Block */}
-              <div className="pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 items-end text-center">
-                <div>
-                  <p className="text-[10px] text-slate-500">Mengetahui,</p>
-                  <p className="text-[10px] font-bold text-slate-900 mt-0.5">Guru Pembimbing</p>
-                  <div className="h-10 border-b border-dashed border-slate-300 mx-4" />
-                  <p className="text-[9px] text-slate-400 mt-1">NIP. .........................</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      NISN
+                    </span>
+                    <p className="font-mono font-bold text-slate-800">
+                      {student.nisn || '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Kelas
+                    </span>
+                    <p className="font-bold text-slate-800">
+                      {student.kelas || '-'}
+                    </p>
+                  </div>
                 </div>
 
                 <div>
-                  <p className="text-[10px] text-slate-500">Ketua Pokja PKL,</p>
-                  <div className="h-10 border-b border-dashed border-slate-300 mx-4" />
-                  <p className="text-[9px] font-extrabold text-blue-900 mt-1">SMK NEGERI 20 JAKARTA</p>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Jurusan / Kompetensi
+                  </span>
+                  <p className="font-semibold text-slate-700 leading-snug">
+                    {student.jurusan || '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Tempat PKL
+                  </span>
+                  <p className="font-bold text-slate-900 leading-snug">
+                    {student.nama_instansi || 'Belum Ditentukan'}
+                  </p>
                 </div>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Operational Help Note */}
-        <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-600 flex items-start gap-2.5 print:hidden">
-          <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            Gunakan tombol <strong className="text-slate-900">Cetak Kartu Fisik</strong> untuk mencetak kartu menggunakan printer ID Card PVC atau kertas laminasi standar.
-          </p>
+            {/* Bagian Barcode & QR Code Pemindaian Cepat */}
+            <div className="pt-3 border-t border-slate-200 grid grid-cols-[1fr_84px] gap-3 items-center">
+              <div>
+                <Barcode1D value={student.nisn || '1234567890'} height={32} />
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="p-1.5 bg-white border border-slate-300 rounded-lg shadow-xs">
+                  <QRCodeSVG
+                    value={student.qr_token || `PRESENSI:${student.id}:${student.nisn}`}
+                    size={68}
+                    level="M"
+                  />
+                </div>
+                <span className="text-[8px] font-bold text-slate-500 mt-1 uppercase">Scan QR</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── SISI BELAKANG (KETENTUAN PENGGUNAAN) ─────────────────── */}
+          <div
+            className={`w-full bg-[#0c2340] text-white rounded-2xl shadow-xl border border-slate-700 p-6 flex flex-col justify-between backface-hidden rotate-y-180 absolute inset-0 print:hidden`}
+            style={{ minHeight: '480px' }}
+          >
+            <div>
+              <div className="border-b border-white/10 pb-3 flex items-center justify-between">
+                <BrandMark size={32} />
+                <span className="text-[10px] font-mono text-slate-400">SMKN 20 JAKARTA</span>
+              </div>
+
+              <div className="mt-4 space-y-3 text-xs text-slate-200">
+                <h3 className="font-bold text-amber-400 uppercase text-[11px] tracking-wider">
+                  Ketentuan Kartu PKL
+                </h3>
+                <ol className="list-decimal pl-4 space-y-1.5 text-[11px] leading-relaxed text-slate-300">
+                  <li>Kartu ini adalah identitas resmi siswa selama menjalani Praktik Kerja Lapangan.</li>
+                  <li>Wajib dibawa setiap hari dan ditunjukkan kepada guru pembimbing saat kunjungan.</li>
+                  <li>Barcode dan QR Code digunakan untuk pencatatan presensi di pos sekolah/industri mitra.</li>
+                  <li>Bila kartu hilang atau rusak, segera hubungi wali kelas atau admin PKL.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/10 text-center text-[10px] text-slate-400">
+              <p className="font-semibold text-slate-300">SMK Negeri 20 Jakarta</p>
+              <p className="mt-0.5">Jl. Melati No. 24, Cilandak, Jakarta Selatan</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Fullscreen QR Modal */}
+      {/* ─── MODAL PERBESAR BARCODE (LAYAR PENUH BRIGHTNESS TINGGI) ──── */}
       {isZoomModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-sm w-full text-center shadow-xl relative border border-slate-200">
-            <button
-              onClick={() => setIsZoomModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1 rounded-lg"
-              aria-label="Tutup pemindai"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4 animate-fadeIn">
+          {/* Tombol Tutup */}
+          <button
+            type="button"
+            onClick={() => setIsZoomModalOpen(false)}
+            className="absolute top-5 right-5 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 active:scale-95"
+            aria-label="Tutup barcode layar penuh"
+          >
+            <X className="w-6 h-6" />
+          </button>
 
-            <div className="mb-4">
-              <h3 className="text-base font-bold text-slate-900">{student.name}</h3>
-              <p className="font-mono text-xs font-bold text-blue-600">NISN: {student.nisn || '-'}</p>
-            </div>
-
-            <div className="bg-white p-3 rounded-xl border-2 border-slate-200 inline-block mb-4">
-              <QRCodeSVG
-                value={student.qr_token || `PRESENSI:${student.id}:${student.nisn}`}
-                size={220}
-                level="H"
-                includeMargin={true}
-              />
-            </div>
-
-            <p className="text-xs text-slate-500 mb-6">
-              Tingkatkan kecerahan layar ponsel agar barcode mudah terbaca oleh mesin pemindai pos absensi.
-            </p>
-
-            <button
-              onClick={() => setIsZoomModalOpen(false)}
-              className="w-full py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800"
-            >
-              Tutup Tampilan
-            </button>
+          <div className="text-center text-white mb-6">
+            <h2 className="text-xl font-bold">{student.name}</h2>
+            <p className="font-mono text-sm text-slate-400 mt-1">NISN: {student.nisn}</p>
           </div>
+
+          {/* QR Code Sangat Besar & Kontras Maksimal */}
+          <div className="p-6 bg-white rounded-3xl shadow-2xl flex flex-col items-center max-w-xs w-full">
+            <QRCodeSVG
+              value={student.qr_token || `PRESENSI:${student.id}:${student.nisn}`}
+              size={240}
+              level="H"
+            />
+            <div className="mt-6 w-full">
+              <Barcode1D value={student.nisn || '1234567890'} height={42} />
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 mt-6 text-center max-w-xs">
+            Arahkan layar ini ke kamera scanner guru atau petugas piket.
+          </p>
         </div>
       )}
     </div>

@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import {
   MapPin,
   Clock,
-  LogOut,
   CheckCircle2,
   AlertCircle,
   FileText,
-  CreditCard,
-  QrCode,
   Calendar,
-  ChevronRight,
-  Radio,
   Check,
   X,
-  Compass,
+  Navigation,
+  Signal,
   ArrowRight
 } from 'lucide-react';
 import api from '../services/api';
 import WebcamCapture from '../components/WebcamCapture';
+import PageHeader from '../components/common/PageHeader';
+import Button from '../components/common/Button';
+import Badge from '../components/common/Badge';
 
-// Haversine formula for exact geofence distance calculation in meters
+// Haversine formula untuk perhitungan jarak GPS akurat (dalam meter)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
@@ -35,7 +33,6 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 const Attendance = () => {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('hadir'); // 'hadir' | 'izin'
 
   // Geolocation & Server State
@@ -80,9 +77,6 @@ const Attendance = () => {
         return;
       }
 
-      setCurrentCoords(null);
-      setError(null);
-
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           setCurrentCoords({
@@ -90,63 +84,63 @@ const Attendance = () => {
             longitude: position.coords.longitude
           });
           setLocationAccuracy(Math.round(position.coords.accuracy));
-          setError(null);
         },
         (err) => {
           let errorMsg = 'Gagal mengakses GPS.';
           switch (err.code) {
             case err.PERMISSION_DENIED:
-              errorMsg = 'Akses GPS ditolak. Harap izinkan izin lokasi pada peramban Anda.';
+              errorMsg = 'Akses GPS ditolak. Mohon aktifkan izin lokasi di browser Anda.';
               break;
             case err.POSITION_UNAVAILABLE:
-              errorMsg = 'Sinyal satelit GPS tidak terdeteksi. Aktifkan setelan lokasi HP.';
+              errorMsg = 'Sinyal lokasi GPS tidak terdeteksi. Pastikan GPS HP aktif.';
               break;
             case err.TIMEOUT:
-              errorMsg = 'Waktu pencarian sinyal GPS habis. Coba di area terbuka.';
+              errorMsg = 'Waktu pencarian GPS habis. Muat ulang halaman.';
               break;
             default:
-              errorMsg = `GPS Error: ${err.message}`;
-              break;
+              errorMsg = 'Terjadi kesalahan saat membaca lokasi GPS.';
           }
           setError(errorMsg);
         },
         {
           enableHighAccuracy: true,
           timeout: 15000,
-          maximumAge: 1000
+          maximumAge: 3000
         }
       );
     }
 
     return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
+      if (watchId !== undefined) {
+        navigator.geolocation.clearWatch(watchId);
+      }
     };
   }, [activeTab]);
 
   const fetchLocations = async () => {
     try {
-      const response = await api.get('/locations');
-      const list = response.data.data || [];
-      setLocations(list);
-      if (list.length > 0) {
-        setSelectedLocation(list[0].id);
+      const res = await api.get('/locations');
+      const locList = res.data?.data || [];
+      setLocations(locList);
+      if (locList.length > 0) {
+        setSelectedLocation(locList[0].id);
       }
-    } catch (err) {
-      console.error('Failed to fetch locations');
+    } catch (e) {
+      console.error('Gagal memuat daftar lokasi PKL');
     }
   };
 
   const fetchHistory = async () => {
     try {
-      const response = await api.get('/attendances/history');
-      setHistory(response.data.data || []);
-    } catch (err) {
-      console.error('Failed to fetch history');
+      const res = await api.get('/attendances/history');
+      setHistory(res.data?.data || []);
+    } catch (e) {
+      console.error('Gagal memuat riwayat presensi');
     }
   };
 
-  // Distance computation
-  const activeLocObj = locations.find((l) => l.id == selectedLocation);
+  const activeLocObj = locations.find((l) => l.id === Number(selectedLocation));
+
   const distanceToLoc =
     currentCoords && activeLocObj
       ? calculateDistance(
@@ -160,13 +154,16 @@ const Attendance = () => {
   const isWithinRadius =
     distanceToLoc !== null && activeLocObj && distanceToLoc <= activeLocObj.radius;
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayRecord = history.find((h) => h.date && h.date.startsWith(todayStr));
+
   const handleAttendance = async (type) => {
     if (!currentCoords) {
-      setError('Titik koordinat belum terkunci. Tunggu sinyal GPS.');
+      setError('Lokasi GPS belum terkunci. Tunggu beberapa detik.');
       return;
     }
     if (!photoUrl) {
-      setError('Wajib mengambil foto bukti selfie kehadiran.');
+      setError('Ambil foto selfie di lokasi terlebih dahulu.');
       return;
     }
 
@@ -188,15 +185,20 @@ const Attendance = () => {
       setMessage(response.data.message);
       setPhotoUrl(null);
       fetchHistory();
+
+      // Haptic feedback getar pada HP
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
     } catch (err) {
       if (err.response?.data) {
         let errorMsg = err.response.data.message;
         if (err.response.data.distance) {
-          errorMsg += ` (Jarak Anda: ${err.response.data.distance}m, Batas: ${err.response.data.allowed_radius}m)`;
+          errorMsg += ` (Jarak Anda: ${err.response.data.distance} m, Batas: ${err.response.data.allowed_radius} m)`;
         }
         setError(errorMsg);
       } else {
-        setError('Terjadi kendala pada server saat memproses presensi.');
+        setError('Gagal memproses absensi. Pastikan koneksi server aktif.');
       }
     } finally {
       setIsLoading(false);
@@ -206,7 +208,7 @@ const Attendance = () => {
   const handleLeaveSubmit = async (e) => {
     e.preventDefault();
     if (!leaveNotes || !leavePhoto) {
-      setError('Keterangan alasan dan foto bukti surat dokter/izin wajib diisi.');
+      setError('Keterangan alasan dan foto bukti surat dokter/izin wajib disertakan.');
       return;
     }
 
@@ -225,12 +227,12 @@ const Attendance = () => {
       setLeaveNotes('');
       setLeavePhoto(null);
       fetchHistory();
-    } catch (err) {
-      if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError('Terjadi kendala saat mengirimkan pengajuan izin.');
+
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(100);
       }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal mengirim pengajuan izin.');
     } finally {
       setIsLoading(false);
     }
@@ -251,393 +253,373 @@ const Attendance = () => {
     ? history.filter((h) => h.date && h.date.startsWith(filterDate))
     : history;
 
+  const formattedTime = currentTime.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 font-sans text-slate-900">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Quick Nav Header Bar */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-              Presensi Mandiri PKL
-            </div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Pencatatan Kehadiran Siswa
-            </h1>
-            <p className="text-xs text-slate-500">
-              Verifikasi titik koordinat satelit geofence dan swafoto di tempat kerja.
-            </p>
+    <div className="space-y-6 animate-fadeIn">
+      <PageHeader
+        title="Absen"
+        description="Pencatatan kehadiran harian magang dengan verifikasi lokasi GPS dan foto selfie di tempat kerja."
+        actions={
+          <div className="bg-slate-200/80 p-1 rounded-xl flex gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('hadir')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'hadir'
+                  ? 'bg-white text-[#0c2340] shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Absen Hadir
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('izin')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'izin'
+                  ? 'bg-white text-[#0c2340] shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Pengajuan Izin / Sakit
+            </button>
           </div>
+        }
+      />
 
-          <Link
-            to="/card"
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-2 transition-colors self-start sm:self-auto"
-          >
-            <CreditCard className="w-4 h-4 text-blue-600" />
-            Kartu Barcode Siswa
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-          </Link>
+      {/* Pesan Sukses / Error Banner */}
+      {message && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-fadeIn">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span>{message}</span>
         </div>
+      )}
 
-        {/* Alerts */}
-        {error && (
-          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-medium flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {message && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{message}</span>
-          </div>
-        )}
-
-        {/* Tab Switcher */}
-        <div className="flex space-x-1 rounded-xl bg-slate-200/80 p-1 max-w-xs">
-          <button
-            onClick={() => {
-              setActiveTab('hadir');
-              setError(null);
-              setMessage(null);
-            }}
-            className={`w-full rounded-lg py-1.5 text-xs font-bold transition-all ${
-              activeTab === 'hadir' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Presensi Hadir
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('izin');
-              setError(null);
-              setMessage(null);
-            }}
-            className={`w-full rounded-lg py-1.5 text-xs font-bold transition-all ${
-              activeTab === 'izin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Izin / Sakit
-          </button>
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-fadeIn">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <span>{error}</span>
         </div>
+      )}
 
-        {/* Main Operational Container */}
+      {/* ─── TAB 1: ABSEN HADIR (GPS & FOTO SELFIE) ──────────────── */}
+      {activeTab === 'hadir' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {activeTab === 'hadir' ? (
-            /* Hadir Form (8 Cols) */
-            <div className="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6">
+          {/* Kolom Kiri: Form & Status Lokasi */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Kartu Jam & Pilihan Lokasi */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Verifikasi Lokasi & Swafoto
-                </h2>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#0c2340]" />
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Jam Sekarang
+                  </span>
+                </div>
+                <span className="font-mono text-base font-extrabold text-[#0c2340]">
+                  {formattedTime} WIB
+                </span>
+              </div>
 
-                {currentCoords ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    <Radio className="w-3 h-3 text-emerald-600" />
-                    GPS Terkunci (&plusmn;{locationAccuracy}m)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200 animate-pulse">
-                    Mencari Sinyal GPS...
-                  </span>
+              {/* Pilihan Lokasi PKL (Lebar Penuh Tanpa Terpotong) */}
+              <div>
+                <label
+                  htmlFor="location-select"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+                >
+                  Pilih Titik Lokasi Magang
+                </label>
+                <div className="relative">
+                  <select
+                    id="location-select"
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:border-[#0c2340] focus:ring-2 focus:ring-[#0c2340]/10 outline-none transition-all truncate pr-8"
+                  >
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} (Radius: {loc.radius} meter)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {activeLocObj && (
+                  <p className="mt-1.5 text-[11px] text-slate-500 truncate">
+                    Alamat: {activeLocObj.address || '-'}
+                  </p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Location Selection & Proximity Feedback */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Pilih Titik Lokasi PKL / Sekolah
-                    </label>
-                    <select
-                      value={selectedLocation}
-                      onChange={(e) => setSelectedLocation(e.target.value)}
-                      className="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500"
-                    >
-                      {locations.map((loc) => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.name} (Batas: {loc.radius}m)
-                        </option>
-                      ))}
-                    </select>
+              {/* Visual Jarak & Geofence Status (Indikator Grafis Bersih) */}
+              <div className={`p-4 rounded-xl border transition-all ${
+                isWithinRadius
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Navigation className={`w-4 h-4 ${isWithinRadius ? 'text-emerald-600' : 'text-amber-600'}`} />
+                    <span className="text-xs font-bold">
+                      {isWithinRadius ? 'Di Dalam Area Absen' : 'Di Luar Area Absen'}
+                    </span>
                   </div>
-
-                  {/* Geofence Radar Card */}
-                  {distanceToLoc !== null && activeLocObj && (
-                    <div
-                      className={`p-4 rounded-xl border space-y-2 ${
-                        isWithinRadius
-                          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-                          : 'bg-amber-50/70 border-amber-200 text-amber-950'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                          {isWithinRadius ? (
-                            <Check className="w-4 h-4 text-emerald-600" />
-                          ) : (
-                            <AlertCircle className="w-4 h-4 text-amber-600" />
-                          )}
-                          Status Geofence
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                            isWithinRadius
-                              ? 'bg-emerald-200 text-emerald-900'
-                              : 'bg-amber-200 text-amber-900'
-                          }`}
-                        >
-                          {isWithinRadius ? 'Dalam Radius' : 'Di Luar Radius'}
-                        </span>
-                      </div>
-
-                      <p className="text-xs">
-                        Jarak Anda ke lokasi: <strong className="font-mono text-sm">{distanceToLoc} meter</strong> (Batas maksimal {activeLocObj.radius} meter).
-                      </p>
-
-                      {!isWithinRadius && (
-                        <p className="text-[11px] text-amber-800 leading-normal">
-                          Harap mendekat ke area tempat magang sebelum menekan tombol check-in.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {currentCoords && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] font-mono text-slate-600 space-y-0.5">
-                      <div className="flex justify-between">
-                        <span>Latitude:</span>
-                        <span className="font-bold text-slate-900">{currentCoords.latitude.toFixed(6)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Longitude:</span>
-                        <span className="font-bold text-slate-900">{currentCoords.longitude.toFixed(6)}</span>
-                      </div>
-                    </div>
+                  {locationAccuracy && (
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-white/70 border border-current">
+                      GPS &plusmn;{locationAccuracy}m
+                    </span>
                   )}
                 </div>
 
-                {/* Selfie Webcam */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Bukti Swafoto di Tempat Kerja
-                  </label>
-                  <WebcamCapture onCapture={(imgStr) => setPhotoUrl(imgStr)} />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleAttendance('in')}
-                  disabled={isLoading || !currentCoords || !photoUrl}
-                  className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <LogOut className="w-4 h-4 rotate-180" />
-                  Presensi Masuk (Check-In)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAttendance('out')}
-                  disabled={isLoading || !currentCoords || !photoUrl}
-                  className="py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Presensi Pulang (Check-Out)
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Izin / Sakit Form (8 Cols) */
-            <div className="lg:col-span-8 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider pb-3 border-b border-slate-100">
-                Formulir Ketidakhadiran Resmi
-              </h2>
-
-              <form onSubmit={handleLeaveSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Jenis Keterangan
-                  </label>
-                  <select
-                    value={leaveType}
-                    onChange={(e) => setLeaveType(e.target.value)}
-                    className="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="izin">Izin Resmi</option>
-                    <option value="sakit">Sakit dengan Surat Keterangan Dokter</option>
-                  </select>
+                <div className="mt-3 flex items-baseline justify-between text-xs font-medium">
+                  <span>
+                    Jarak saat ini:{' '}
+                    <strong className="font-mono font-bold text-sm">
+                      {distanceToLoc !== null ? `${distanceToLoc} m` : 'Mencari...'}
+                    </strong>
+                  </span>
+                  <span>
+                    Batas radius: <strong className="font-mono">{activeLocObj?.radius || 0} m</strong>
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Alasan / Keterangan Lengkap
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={leaveNotes}
-                    onChange={(e) => setLeaveNotes(e.target.value)}
-                    placeholder="Tuliskan alasan rinci permohonan izin..."
-                    className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:border-blue-500"
-                    required
+                {/* Progress Bar Jarak */}
+                <div className="w-full bg-slate-200/80 rounded-full h-2 mt-2 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      isWithinRadius ? 'bg-emerald-600' : 'bg-amber-500'
+                    }`}
+                    style={{
+                      width: activeLocObj && distanceToLoc !== null
+                        ? `${Math.min(100, Math.max(5, (activeLocObj.radius / Math.max(distanceToLoc, 1)) * 100))}%`
+                        : '0%'
+                    }}
                   />
                 </div>
 
+                {!isWithinRadius && distanceToLoc !== null && activeLocObj && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-800">
+                    Kamu berjarak {distanceToLoc} meter dari lokasi. Dekati lokasi hingga di bawah {activeLocObj.radius} meter untuk bisa menekan tombol absen.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Tombol Aksi Check-in & Check-out */}
+            <div className="space-y-3">
+              {!todayRecord ? (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Unggah Berkas Surat Bukti (JPG / PNG)
-                  </label>
-                  <div
-                    onClick={() => document.getElementById('leave-file-input').click()}
-                    className="p-6 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer text-center transition-colors"
+                  <Button
+                    variant="primary"
+                    size="thumb"
+                    disabled={!isWithinRadius || !photoUrl || isLoading}
+                    isLoading={isLoading}
+                    onClick={() => handleAttendance('in')}
                   >
-                    {leavePhoto ? (
-                      <p className="text-xs font-bold text-emerald-700 flex items-center justify-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        Berkas foto surat berhasil dipilih
+                    Absen Masuk
+                  </Button>
+                  {(!isWithinRadius || !photoUrl) && (
+                    <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                      {!photoUrl
+                        ? 'Wajib mengambil foto selfie di kamera terlebih dahulu'
+                        : 'Tombol nonaktif karena kamu belum berada di dalam area lokasi'}
+                    </p>
+                  )}
+                </div>
+              ) : !todayRecord.check_out_time ? (
+                <div className="space-y-2">
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+                    <span>Sudah absen masuk jam <strong>{todayRecord.check_in_time}</strong></span>
+                    <Badge size="sm" status="hadir">Masuk</Badge>
+                  </div>
+                  <div>
+                    <Button
+                      variant="accent"
+                      size="thumb"
+                      disabled={!isWithinRadius || !photoUrl || isLoading}
+                      isLoading={isLoading}
+                      onClick={() => handleAttendance('out')}
+                    >
+                      Absen Pulang
+                    </Button>
+                    {(!isWithinRadius || !photoUrl) && (
+                      <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                        {!photoUrl
+                          ? 'Ambil foto selfie sebelum menekan absen pulang'
+                          : 'Tombol nonaktif karena berada di luar area lokasi'}
                       </p>
-                    ) : (
-                      <>
-                        <FileText className="w-6 h-6 mx-auto text-slate-400 mb-1" />
-                        <p className="text-xs font-bold text-slate-800">Pilih berkas dari perangkat</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Surat Keterangan Dokter atau Surat Izin Orang Tua</p>
-                      </>
                     )}
-                    <input
-                      id="leave-file-input"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
                   </div>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  Kirimkan Permohonan Izin
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Right Column: Clock Telemetry Card (4 Cols) */}
-          <div className="lg:col-span-4 bg-slate-950 text-white p-6 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-                <Clock className="w-4 h-4 text-blue-400" />
-                <span>Waktu Sinkronisasi Server</span>
-              </div>
-              <p className="text-3xl font-black font-mono tracking-tight text-white pt-2">
-                {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </p>
-              <p className="text-xs text-slate-400">
-                {currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-
-            <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800/80 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-400">
-                <span>Batas Presensi Masuk:</span>
-                <span className="font-mono font-bold text-white">08:00 WIB</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Kategori Waktu:</span>
-                <span className={`font-bold ${currentTime.toTimeString().split(' ')[0] > '08:00:00' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {currentTime.toTimeString().split(' ')[0] > '08:00:00' ? 'Terlambat' : 'Tepat Waktu'}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-500 leading-normal">
-              Presensi yang tercatat setelah pukul 08:00 WIB otomatis diklasifikasikan sebagai <em>Terlambat</em> pada rekapitulasi sekolah.
-            </div>
-          </div>
-        </div>
-
-        {/* History Table Ledger */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Buku Riwayat Presensi</h2>
-              <p className="text-xs text-slate-500">Log kehadiran siswa yang tersimpan pada pangkalan data</p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              {filterDate && (
-                <button onClick={() => setFilterDate('')} className="text-xs text-blue-600 font-bold hover:underline">
-                  Reset
-                </button>
+              ) : (
+                <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200 text-center space-y-1">
+                  <Check className="w-5 h-5 text-emerald-600 mx-auto" />
+                  <p className="text-xs font-bold text-slate-900">Presensi Hari Ini Selesai</p>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    Masuk: {todayRecord.check_in_time} • Pulang: {todayRecord.check_out_time}
+                  </p>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-xs">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="py-3 pl-6 pr-3 text-left font-bold text-slate-600 uppercase tracking-wider">Tanggal</th>
-                  <th className="px-3 py-3 text-left font-bold text-slate-600 uppercase tracking-wider">Lokasi / Keterangan</th>
-                  <th className="px-3 py-3 text-left font-bold text-slate-600 uppercase tracking-wider">Masuk</th>
-                  <th className="px-3 py-3 text-left font-bold text-slate-600 uppercase tracking-wider">Pulang</th>
-                  <th className="px-3 py-3 text-left font-bold text-slate-600 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredHistory.length > 0 ? (
-                  filteredHistory.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 pl-6 pr-3 font-semibold text-slate-900 whitespace-nowrap">
-                        {new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="px-3 py-3.5 text-slate-700 max-w-[240px] truncate">
-                        {item.location_name || item.notes || '-'}
-                      </td>
-                      <td className="px-3 py-3.5 font-mono text-slate-600 whitespace-nowrap">{item.check_in_time || '-'}</td>
-                      <td className="px-3 py-3.5 font-mono text-slate-600 whitespace-nowrap">{item.check_out_time || '-'}</td>
-                      <td className="px-3 py-3.5 whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            item.status === 'hadir'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : item.status === 'terlambat'
-                              ? 'bg-amber-100 text-amber-800'
-                              : item.status === 'ditolak'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}
-                        >
-                          {item.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="py-10 text-center text-slate-400">
-                      Tidak ada catatan presensi pada periode ini.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          {/* Kolom Kanan: Kamera Selfie */}
+          <div className="lg:col-span-5">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col items-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 self-start">
+                Bukti Foto Selfie
+              </span>
+              <WebcamCapture onCapture={(img) => setPhotoUrl(img)} />
+            </div>
           </div>
         </div>
-      </main>
+      )}
+
+      {/* ─── TAB 2: PENGAJUAN IZIN / SAKIT ───────────────────────── */}
+      {activeTab === 'izin' && (
+        <div className="max-w-xl mx-auto bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
+          <form onSubmit={handleLeaveSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="leave-type-select"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+              >
+                Jenis Pengajuan
+              </label>
+              <select
+                id="leave-type-select"
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:border-[#0c2340] outline-none"
+              >
+                <option value="izin">Izin Tidak Masuk</option>
+                <option value="sakit">Sakit (Dengan Surat Dokter)</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="leave-notes-input"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+              >
+                Keterangan / Alasan
+              </label>
+              <textarea
+                id="leave-notes-input"
+                rows={4}
+                required
+                value={leaveNotes}
+                onChange={(e) => setLeaveNotes(e.target.value)}
+                placeholder="Tuliskan alasan lengkap tidak dapat hadir PKL..."
+                className="w-full p-3 text-xs bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:border-[#0c2340] outline-none resize-none"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="leave-photo-upload"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+              >
+                Unggah Bukti Surat Dokter / Foto Izin
+              </label>
+              <input
+                id="leave-photo-upload"
+                type="file"
+                accept="image/*"
+                required
+                onChange={handleFileChange}
+                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-[#0c2340] file:text-white hover:file:bg-[#132e58]"
+              />
+              {leavePhoto && (
+                <div className="mt-3 w-32 h-32 rounded-xl overflow-hidden border border-slate-200">
+                  <img src={leavePhoto} alt="Bukti izin" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isLoading}
+                className="w-full"
+              >
+                Kirim Pengajuan Izin
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ─── RIWAYAT PRESENSI (RESPONSIF MOBILE DENGAN CARD LIST) ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 className="text-sm font-bold text-slate-900">
+            Riwayat Absen
+          </h2>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none"
+            />
+            {filterDate && (
+              <button
+                type="button"
+                onClick={() => setFilterDate('')}
+                className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredHistory.length === 0 ? (
+          <div className="text-center py-8 text-slate-400 space-y-2">
+            <Calendar className="w-8 h-8 mx-auto opacity-40" />
+            <p className="text-xs font-semibold">Belum ada data absen di tanggal ini.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredHistory.map((item) => (
+              <div key={item.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 font-mono font-bold text-slate-800 flex flex-col items-center justify-center text-xs shrink-0 leading-tight">
+                    <span>{item.date ? new Date(item.date).getDate() : '-'}</span>
+                    <span className="text-[9px] text-slate-400">
+                      {item.date ? new Date(item.date).toLocaleDateString('id-ID', { month: 'short' }) : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">
+                      {item.location_name || 'Lokasi PKL'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                      Masuk: {item.check_in_time || '-'} • Pulang: {item.check_out_time || '-'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <Badge
+                    size="sm"
+                    status={item.status === 'terlambat' ? 'terlambat' : item.status === 'izin' ? 'izin' : 'hadir'}
+                  >
+                    {item.status === 'terlambat' ? 'Terlambat' : item.status === 'izin' ? 'Izin' : 'Tepat Waktu'}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

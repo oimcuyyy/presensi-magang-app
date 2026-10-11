@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn, AlertCircle, Eye, EyeOff, ShieldCheck, User, Radio, KeyRound, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import api from '../services/api';
 import BrandLogo from '../components/BrandLogo';
+import Button from '../components/common/Button';
+
+// Flag untuk menampilkan tombol akun demo (mudah dinonaktifkan saat production penuh)
+const SHOW_DEMO_ACCOUNTS = true;
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -26,7 +30,7 @@ const Login = () => {
       if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else {
-        setError('Terjadi kendala autentikasi. Pastikan koneksi server aktif.');
+        setError('Gagal masuk. Pastikan email dan password benar, serta server aktif.');
       }
     } finally {
       setIsLoading(false);
@@ -40,191 +44,139 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex font-sans bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
-      {/* Left Column: High-End Institutional Brand Section (Desktop) */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 xl:p-16 relative border-r border-slate-800/90 bg-slate-950">
-        {/* Subtle Architectural Dot Matrix Grid */}
-        <div
-          className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:24px_24px] opacity-30 pointer-events-none"
-          aria-hidden="true"
-        />
-
-        <div className="relative z-10">
-          <BrandLogo variant="full" theme="dark" markSize={36} />
+    <div className="min-h-screen flex flex-col justify-center items-center p-4 sm:p-6 bg-slate-50 font-sans text-slate-800">
+      {/* Container Login Kartu Terstruktur */}
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden animate-scaleIn">
+        {/* Header Kartu: Navy SMKN 20 */}
+        <div className="bg-[#0c2340] px-6 py-8 text-white text-center relative">
+          <div className="flex justify-center mb-4">
+            <BrandLogo variant="icon" markSize={54} className="drop-shadow-md" />
+          </div>
+          <h1 className="text-xl font-extrabold tracking-tight text-white">
+            SMK Negeri 20 Jakarta
+          </h1>
+          <p className="mt-1 text-xs text-slate-300 font-medium">
+            Sistem Presensi & Jurnal PKL Digital
+          </p>
         </div>
 
-        <div className="relative z-10 max-w-lg my-auto space-y-8">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-slate-900 text-amber-400 border border-slate-800">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              SMK Negeri 20 Jakarta • Portal Resmi PKL
-            </div>
-            <h1 className="text-3xl xl:text-4xl font-extrabold text-white tracking-tight leading-snug">
-              Presensi Siswa, Monitoring Magang, & Kartu Identitas Digital.
-            </h1>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Platform administrasi magang terpadu SMK Negeri 20 Jakarta untuk siswa, guru pembimbing, dan petugas piket sekolah dengan geofencing presisi dan pemindai barcode kartu pelajar.
-            </p>
-          </div>
-
-          {/* Core Feature Matrix */}
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800/90 space-y-1">
-              <p className="font-semibold text-white">Geofence SMKN 20 & DUDI</p>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Validasi radius lokasi presensi di kampus SMKN 20 Cilandak dan mitra industri.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800/90 space-y-1">
-              <p className="font-semibold text-white">Kartu Pelajar Barcode NISN</p>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Format CR80 ISO dengan QR Code HMAC dan barcode 1D Code128 untuk pemindaian cepat petugas.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-          <span>SMK Negeri 20 Jakarta • Dinas Pendidikan Provinsi DKI Jakarta</span>
-          <span className="font-mono text-[11px] text-slate-400">v2.4.0-smkn20</span>
-        </div>
-      </div>
-
-      {/* Right Column: Clean Institutional Login Form */}
-      <div className="flex-1 flex flex-col justify-center py-12 px-6 sm:px-12 lg:px-16 xl:px-20 relative bg-slate-950">
-        <div className="mx-auto w-full max-w-sm">
-          {/* Mobile Brand Header */}
-          <div className="lg:hidden mb-8">
-            <BrandLogo variant="full" theme="dark" markSize={32} />
-          </div>
-
-          <div className="mb-8 space-y-1.5">
-            <h2 className="text-2xl font-bold tracking-tight text-white">
-              Masuk ke Portal
-            </h2>
-            <p className="text-xs text-slate-400">
-              Gunakan kredensial akun terdaftar untuk mengakses sistem.
-            </p>
-          </div>
-
+        {/* Form Body */}
+        <div className="p-6 sm:p-8">
           {error && (
             <div
               role="alert"
-              className="mb-6 p-3.5 rounded-xl bg-red-950/40 border border-red-800/60 text-red-300 text-xs font-medium flex items-center gap-2.5"
+              className="mb-6 p-3.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-fadeIn"
             >
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-              <span>{error}</span>
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">{error}</div>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label htmlFor="login-email" className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Alamat Email
+              <label
+                htmlFor="email-input"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+              >
+                Email Sekolah
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Mail className="w-4 h-4" />
+                </div>
                 <input
-                  id="login-email"
+                  id="email-input"
                   type="email"
-                  autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@sekolah.com"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  placeholder="nama@smkn20.sch.id"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#0c2340] focus:ring-2 focus:ring-[#0c2340]/10 transition-all outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="login-password" className="block text-xs font-semibold text-slate-300">
-                  Kata Sandi
-                </label>
-              </div>
+              <label
+                htmlFor="password-input"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5"
+              >
+                Password
+              </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
                 <input
-                  id="login-password"
+                  id="password-input"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono"
+                  placeholder="Masukkan password"
+                  className="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#0c2340] focus:ring-2 focus:ring-[#0c2340]/10 transition-all outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full mt-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  Masuk Sekarang
-                </>
-              )}
-            </button>
+            <div className="pt-2">
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                isLoading={isLoading}
+                className="w-full"
+                rightIcon={ArrowRight}
+              >
+                Masuk
+              </Button>
+            </div>
           </form>
 
-          {/* Quick Demo Access Bar */}
-          <div className="mt-8 pt-6 border-t border-slate-900">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">
-              Akun Uji Coba Cepat
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => fillCredentials('admin@sekolah.com', 'password123')}
-                className="p-2.5 bg-slate-900 hover:bg-slate-850 hover:border-slate-700 border border-slate-800/90 rounded-xl text-left transition-colors group"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="text-[11px] font-bold text-white">Admin</span>
-                </div>
-                <p className="text-[10px] text-slate-500 truncate">admin@sekolah.com</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('budi@guru.com', 'password123')}
-                className="p-2.5 bg-slate-900 hover:bg-slate-850 hover:border-slate-700 border border-slate-800/90 rounded-xl text-left transition-colors group"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Radio className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="text-[11px] font-bold text-white">Guru</span>
-                </div>
-                <p className="text-[10px] text-slate-500 truncate">budi@guru.com</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('andi@siswa.com', 'password123')}
-                className="p-2.5 bg-slate-900 hover:bg-slate-850 hover:border-slate-700 border border-slate-800/90 rounded-xl text-left transition-colors group"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <User className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-[11px] font-bold text-white">Siswa</span>
-                </div>
-                <p className="text-[10px] text-slate-500 truncate">andi@siswa.com</p>
-              </button>
+          {/* Akun Demo Cepat */}
+          {SHOW_DEMO_ACCOUNTS && (
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center mb-3">
+                Akun Demo
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillCredentials('andi@siswa.com', 'password123')}
+                  className="px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-[#0c2340] hover:text-white hover:border-[#0c2340] text-slate-700 transition-all text-center"
+                >
+                  Siswa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fillCredentials('budi@guru.com', 'password123')}
+                  className="px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-[#0c2340] hover:text-white hover:border-[#0c2340] text-slate-700 transition-all text-center"
+                >
+                  Guru
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fillCredentials('admin@sekolah.com', 'password123')}
+                  className="px-2.5 py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-[#0c2340] hover:text-white hover:border-[#0c2340] text-slate-700 transition-all text-center"
+                >
+                  Admin
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Footer Identitas */}
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500 font-medium">
+          Dinas Pendidikan Provinsi DKI Jakarta
         </div>
       </div>
     </div>
